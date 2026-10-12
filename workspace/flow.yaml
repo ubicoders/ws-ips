@@ -1,0 +1,62 @@
+# sb workspace definition for ws-ips.
+# Lives at ~/.swarmbotix/workspaces/ws_ips/flow.yaml once setup.sh has copied it.
+# <REPO> is replaced by the absolute path of this clone (setup.sh does it).
+# Module names match the folder names; the workspace name ws_ips becomes the
+# second segment of every wire key (<device>/ws_ips/<module>/<transport>/<topic>).
+
+modules:
+  cam_gige_ht: <REPO>/cam_gige_ht/sb.dev.yml
+  ips_detect:  <REPO>/ips_detect/sb.dev.yml
+  ips_calib:   <REPO>/ips_calib/sb.dev.yml
+  ips_track:   <REPO>/ips_track/sb.dev.yml
+  ips_viz:     <REPO>/ips_viz/sb.dev.yml
+
+instances:
+  # One camera container per instance. `id` is the camera's user-set name
+  # (written into the camera with camconfig/nameit.py) and becomes the topic
+  # suffix: <device>/ws_ips/cam_gige_ht-sb00/iox2/image
+  cam_gige_ht:
+    - id: sb00
+      label: "Camera 0"
+      docker:
+        image: cam_gige_ht:latest
+        network: host
+        env:
+          CAM_NAME: sb00
+          EXPOSURE_US: "5000"
+    - id: sb01
+      label: "Camera 1"
+      docker:
+        image: cam_gige_ht:latest
+        network: host
+        env:
+          CAM_NAME: sb01
+          EXPOSURE_US: "5000"
+    - id: sb02
+      label: "Camera 2"
+      docker:
+        image: cam_gige_ht:latest
+        network: host
+        env:
+          CAM_NAME: sb02
+          EXPOSURE_US: "5000"
+    - id: sb03
+      label: "Camera 3"
+      docker:
+        image: cam_gige_ht:latest
+        network: host
+        env:
+          CAM_NAME: sb03
+          EXPOSURE_US: "5000"
+
+  # One detector process per camera, same ids, so each detector subscribes to
+  # the image key with the matching suffix.
+  ips_detect:
+    - id: sb00
+      label: "Detector 0"
+    - id: sb01
+      label: "Detector 1"
+    - id: sb02
+      label: "Detector 2"
+    - id: sb03
+      label: "Detector 3"

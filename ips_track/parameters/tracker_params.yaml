@@ -1,0 +1,38 @@
+# tracker_params.yaml: all parameters for ips_track. Read at startup.
+cube_width:  0.1      # m, X
+cube_height: 0.1      # m, Z
+cube_length: 0.1      # m, Y
+marker_size: 0.087    # m, ArUco tag side (same value as ips_detect)
+
+cube_ids: [0, 1]      # 0-based cubes to fuse; cube k owns marker ids 5k..5k+4. Empty = all.
+cameras: [0, 1, 2, 3] # cameras whose extrinsics to load
+
+use_all: true         # true: fit every marker, no reject pass. false: greedy reject with the tolerances below.
+pos_tol: 0.04         # m, reject a marker whose centre is further than this from the fit
+ang_tol: 30           # deg, same for orientation
+
+rate_hz:  90          # fixed fuse and publish rate
+stale_ms: 200         # drop a camera unseen for this long
+alive_ms: 2000        # a cube unseen for this long publishes alive=false
+
+filter: lp            # none | lp | oneeuro | kf   (kf is the module 3 stub)
+lp_pose:  0.90        # EMA weight on the previous value, position
+lp_angle: 0.90        # same, orientation (SLERP)
+oe_min_cutoff_pos: 1.0
+oe_beta_pos:       0.9
+oe_min_cutoff_ang: 1.0
+oe_beta_ang:       0.9
+kf_q_pos:        0.1  # position accel PSD (m^2/s^3)
+kf_r_pos:        0.1  # base position measurement std (m)
+kf_q_ang:        0.01 # angular accel PSD (rad^2/s^3)
+kf_r_ang:        0.1  # base orientation measurement std (rad)
+kf_lookahead_ms: 0    # predict-ahead horizon (ms)
+
+# Cube net, ArUco id per face (arrows up):
+#               +--------+
+#               |  TOP   |   id 0
+#      +--------+--------+--------+--------+
+#      |  LEFT  |  BACK  | RIGHT  |  FRONT |
+#      |  id 4  |  id 1  |  id 2  |  id 3  |
+#      +--------+--------+--------+--------+
+#               (bottom face blank, it is the mount)
