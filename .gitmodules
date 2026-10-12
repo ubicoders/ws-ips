@@ -2,7 +2,9 @@
 	path = drivers/gcam-mvsdk-rs
 	url = https://github.com/swarmbotix/gcam-mvsdk-rs
 	branch = main
+	update = merge
 [submodule "drivers/gcam-mvsdk-py"]
 	path = drivers/gcam-mvsdk-py
 	url = https://github.com/swarmbotix/gcam-mvsdk-py
 	branch = main
+	update = merge
