@@ -1,11 +1,12 @@
 # ips_calib
 
-Subscribes to every detector's marker stream while the cameras look at the IPS calib board, accumulates the marker centres, and solves each camera's pose in the world frame by a rigid least-squares (Kabsch) fit against the board geometry in `calibration/ips_calib.yaml`. Writes one `sbNN_full.yaml` per camera. Run once per camera placement, not part of the live pipeline.
+Subscribes to every detector's marker stream while the cameras look at the IPS calib board, accumulates the marker centres per camera, and solves each camera's pose in the world frame by a rigid least-squares (Kabsch) fit against the board geometry in `calibration/ips_calib.yaml`. Writes one `sbNN_full.yaml` per camera. Run once per camera placement, not part of the live pipeline. Needs neither OpenCV nor iceoryx2: the detectors did the image work.
 
 ## Inputs
 
-- `<device>/ws_ips/ips_detect-*/zenoh/markers` with the detectors set to `family: april`, `marker_size: 0.185`.
-- `calibration/ips_calib.yaml`, `calibration/intrinsics/sbNN-camchain.yaml`.
+- `<device>/ws_ips/ips_detect-$*/zenoh/markers` with the detectors set to `family: april`, `marker_size: 0.185`.
+- `calibration/ips_calib.yaml` (board and placement), `calibration/intrinsics/sbNN-camchain.yaml` (K, copied into the output).
+- `parameters/calib_params.yaml`: `cameras`, `frames`, `timeout_s`, `min_markers`.
 
 ## Outputs
 
@@ -16,24 +17,40 @@ Subscribes to every detector's marker stream while the cameras look at the IPS c
 
 | Topic | Transport | Key |
 |---|---|---|
-| markers (all cameras) | zenoh | `<device>/ws_ips/ips_detect-*/zenoh/markers` |
+| markers (all cameras, subscribed) | zenoh | `<device>/ws_ips/ips_detect-$*/zenoh/markers` |
+
+## Layout
+
+```
+src/main.rs          subscribe, accumulate until frames or timeout, fit, write, exit
+src/board.rs         ips_calib.yaml to world-frame marker centres
+src/accumulate.rs    per camera, per marker id: median of the observed centres
+src/fit.rs           fit_extrinsics, reprojection_residual                      <- stubs
+src/writer.rs        sbNN_full.yaml
+tests/fit.rs
+parameters/calib_params.yaml
+sb.dev.yml.in        subscriber `markers`
+build.rs             prost on messages/custom/*.proto out of the sb vault
+```
+
+Depends on zenoh 1.9, prost, nalgebra, serde_yaml.
 
 ## State at handout, and what you build
 
-Scaffold. The subscriber, the accumulation (median per marker id), and the yaml writer are in place. You fill, in module 2:
+Scaffold. The subscriber, the accumulation, and the yaml writer are in place. You fill, in module 2:
 
 | Stub | Where | Test |
 |---|---|---|
-| `fit_extrinsics`: paired world and camera-frame marker centres to `R`, `t` (Kabsch / Umeyama, SVD) | `ips_common/src/fit.rs` | synthetic pairs with known transform, then the recorded board frames |
-| `reprojection_residual`: RMS of the fitted centres against the measured ones | `ips_common/src/fit.rs` | same |
+| `fit_extrinsics`: paired world and camera-frame marker centres to `R`, `t` (Kabsch / Umeyama, SVD) | `src/fit.rs` | `tests/fit.rs`: synthetic pairs with known transform, then the recorded board detections |
+| `reprojection_residual`: RMS of the fitted centres against the measured ones | `src/fit.rs` | same |
 
-Each camera needs at least 3 marker ids in view or it is skipped.
+A camera needs at least `min_markers` distinct board ids in view or it is skipped.
 
 ## Run
 
 ```bash
-sb run ips_calib            # this module alone, in its own tmux session
-sb stop ips_calib
+sb run ips_calib            # one shot, exits when done
+cargo test                  # inside this folder; the acceptance check
 ```
 
-Parameters, when the module has them, live in `parameters/` and are read at startup. No value is passed on the command line that also exists in the yaml.
+Parameters live in `parameters/` and are read at startup. No value is passed on the command line that also exists in the yaml.

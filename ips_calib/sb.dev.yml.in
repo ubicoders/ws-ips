@@ -1,0 +1,14 @@
+# sb module definition, template. workspace/setup.sh writes sb.dev.yml from it
+# with <REPO> replaced; sb.dev.yml is gitignored because `root:` is absolute.
+module: ips_calib
+language: rust
+root: <REPO>/ips_calib
+io_dir: swarmbotix_io
+publishers: []
+subscribers:
+  # Bare topic on purpose; main() overrides `full` at startup to the wildcard
+  # <device>/ws_ips/ips_detect-$*/zenoh/markers (every detector instance).
+  - name: markers
+    topic: markers
+    type: ros2/custom/MarkerDetections
+    transport: zenoh

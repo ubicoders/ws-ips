@@ -1,5 +1,10 @@
 target/
 __pycache__/
 *.pyc
-.sb_msgs/
 *.rrd
+
+# Generated per clone by workspace/setup.sh (they bake the device name, the
+# workspace and absolute paths of this machine). Templates are sb.dev.yml.in.
+sb.dev.yml
+swarmbotix_io/
+

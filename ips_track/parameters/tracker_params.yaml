@@ -5,7 +5,9 @@ cube_length: 0.1      # m, Y
 marker_size: 0.087    # m, ArUco tag side (same value as ips_detect)
 
 cube_ids: [0, 1]      # 0-based cubes to fuse; cube k owns marker ids 5k..5k+4. Empty = all.
-cameras: [0, 1, 2, 3] # cameras whose extrinsics to load
+# Camera index into ips_cam_gcam_pub/parameters/cam_params.yaml: 0 -> sb00, 1 -> sb01, ...
+# e.g. 0 loads calibration/extrinsics/sb00_full.yaml and serves .../ips_track/zenoh/service/cam_param/sb00
+cameras: [0, 1, 2, 3]
 
 use_all: true         # true: fit every marker, no reject pass. false: greedy reject with the tolerances below.
 pos_tol: 0.04         # m, reject a marker whose centre is further than this from the fit

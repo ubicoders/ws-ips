@@ -1,0 +1,42 @@
+// custom/MarkerDetections — fiducial marker detections from ONE camera,
+// published per frame over zenoh (protobuf). Poses are in the camera optical
+// frame: RDF = +x right, +y down, +z forward.
+syntax = "proto3";
+
+package swarmbotix.custom;
+
+// 3-vector. position: metres (RDF optical frame). euler_deg: degrees about
+// X, Y, Z in XYZ order, same frame.
+message Vec3 {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+}
+
+// Orientation as a unit quaternion (canonical; gimbal-lock-free).
+message Quat {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+  double w = 4;
+}
+
+// One detected marker.
+message MarkerDetection {
+  int32  id          = 1;  // dictionary id
+  string family      = 2;  // e.g. "april0 (AprilTag 36h11)" / "aruco0 (ArUco 4x4_250)"
+  Vec3   position    = 3;  // marker centre, metres, RDF optical frame
+  Quat   orientation = 4;  // canonical orientation
+  Vec3   euler_deg   = 5;  // XYZ Euler degrees, RDF optical frame (convenience)
+  double distance    = 6;  // straight-line distance to centre, metres
+}
+
+// All markers seen in one camera frame (the vector). Published every frame;
+// `markers` is empty when nothing was detected (heartbeat).
+message MarkerDetections {
+  int32  stamp_sec     = 1;
+  uint32 stamp_nanosec = 2;
+  string camera        = 3;  // instance, e.g. "sb00"
+  uint64 frame_seq     = 4;
+  repeated MarkerDetection markers = 5;
+}

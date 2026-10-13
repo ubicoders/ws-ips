@@ -5,21 +5,33 @@ Subscribes to the cube poses from `ips_track`, fetches each camera's extrinsics 
 ## Inputs
 
 - `<device>/ws_ips/ips_track/zenoh/cube_poses`.
-- `<device>/ws_ips/ips_track/zenoh/service/cam_param/sbNN` at startup.
+- `<device>/ws_ips/ips_track/zenoh/service/cam_param/sbNN` at startup, retried until the tracker answers.
 - `<device>/ws_ips/ips_detect-sbNN/iox2/debug_image` when `debug_show_images: true`.
 - `parameters/viz_params.yaml`: cube box size, cameras to draw, `rerun_hz`, which panels to show.
 
 ## Outputs
 
-- A rerun log stream to `rerun+http://127.0.0.1:9876/proxy`. Start `rerun` first; with no viewer up it buffers and reconnects.
+- A rerun log stream to `rerun+http://127.0.0.1:9876/proxy`. Start `rerun` (0.33) first; with no viewer up it buffers and reconnects.
 
 ## Wire keys
 
 | Topic | Transport | Key |
 |---|---|---|
-| cube_poses | zenoh | `<device>/ws_ips/ips_track/zenoh/cube_poses` |
-| cam_param | zenoh queryable | `<device>/ws_ips/ips_track/zenoh/service/cam_param/sbNN` |
-| debug_image | iceoryx2 | `<device>/ws_ips/ips_detect-sbNN/iox2/debug_image` |
+| cube_poses (subscribed) | zenoh | `<device>/ws_ips/ips_track/zenoh/cube_poses` |
+| cam_param (queried) | zenoh queryable | `<device>/ws_ips/ips_track/zenoh/service/cam_param/sbNN` |
+| debug_image (subscribed) | iceoryx2 | `<device>/ws_ips/ips_detect-sbNN/iox2/debug_image` |
+
+## Layout
+
+```
+src/main.rs         parameters, the cam_param fetch, the subscribe loop
+src/visualize.rs    the rerun blueprint, cameras, cubes, plots, debug images
+parameters/viz_params.yaml
+sb.dev.yml.in       subscribers `cube_poses`, `debug_image`
+build.rs            prost on messages/custom/*.proto out of the sb vault
+```
+
+Depends on zenoh 1.9, iceoryx2 `=0.9.3`, prost, nalgebra, rerun 0.33 (sdk only, no bundled viewer).
 
 ## State at handout, and what you build
 
@@ -28,8 +40,9 @@ Full. Nothing to build. Use the position plot to read jitter and the velocity pl
 ## Run
 
 ```bash
-sb run ips_viz            # this module alone, in its own tmux session
+rerun                       # the viewer, once
+sb run ips_viz
 sb stop ips_viz
 ```
 
-Parameters, when the module has them, live in `parameters/` and are read at startup. No value is passed on the command line that also exists in the yaml.
+Parameters live in `parameters/` and are read at startup. No value is passed on the command line that also exists in the yaml.

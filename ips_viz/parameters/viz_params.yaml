@@ -3,7 +3,9 @@ cube_width:  0.1
 cube_height: 0.1
 cube_length: 0.1
 cube_viz_scale: 1          # draw the box this many times larger; pose unchanged
-cameras: [0, 1, 2, 3]      # cameras to draw (extrinsics fetched from ips_track)
+# Camera index into ips_cam_gcam_pub/parameters/cam_params.yaml: 0 -> sb00, 1 -> sb01, ...
+# e.g. 0 queries .../ips_track/zenoh/service/cam_param/sb00 and draws world/cameras/sb00
+cameras: [0, 1, 2, 3]
 rerun_hz: 10               # rate at which debug images are forwarded to rerun
 debug_show_images: false   # 2x2 grid of per-camera debug images
 debug_show_pos_xyz: true   # position X/Y/Z plot per cube

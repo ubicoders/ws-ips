@@ -1,0 +1,62 @@
+// custom/CubePoses — fused rigid pose of each marker cube, published per frame
+// over zenoh (protobuf) by ips_track. Poses are in the WORLD frame (RDF, metres),
+// the same frame as the sbNN_full.yaml camera extrinsics.
+//
+// Body frame: origin at the cube centre, RDF with +X toward the RIGHT face,
+// +Y toward the BACK face, +Z toward the blank BOTTOM face. The TOP marker's
+// X axis is body +X; its Y and Z axes are body -Y and -Z (it faces up).
+// world = R * body + t, so t is the cube centre in world and R rotates
+// body-frame vectors into world.
+syntax = "proto3";
+
+package swarmbotix.custom;
+
+// Reuse Vec3 (3-vector) and Quat (unit quaternion) from MarkerDetections.
+import "custom/MarkerDetections.proto";
+
+// 3x3 row-major rotation matrix, 9 doubles: [r00 r01 r02 r10 r11 r12 r20 r21 r22].
+message Mat3 {
+  repeated double m = 1;
+}
+
+// One fused cube pose in the world frame, with a liveness heartbeat.
+//
+// A cube enters the roster on its first successful fuse and is then reported on
+// every frame thereafter. `alive` is recomputed each frame from how long ago the
+// cube was last fused (the tracker's alive window, default 2 s).
+//
+// alive=true: fused within the window. position/rotation/euler/orientation carry
+// a usable pose (this frame's fit, or the last good one carried through a brief
+// gap), and last_seen_* mark when it was last fused. `velocity` is the cube's
+// world-frame linear velocity, but only when the tracker runs the `kf` filter
+// (the other smoothers carry no velocity state and leave it unset).
+//
+// alive=false: not fused within the window — treat the cube as gone, do NOT use
+// it. The pose fields (position/rotation/euler/orientation/velocity) are cleared
+// (unset); only cube_id, alive and last_seen_* are meaningful.
+message CubePose {
+  uint32 cube_id        = 1;   // 0-based: cube k owns marker ids [5k .. 5k+4]
+  Vec3   position       = 2;   // cube centre in world, metres (RDF); unset when !alive
+  Mat3   rotation       = 3;   // R, body->world (world = R*body + t); unset when !alive
+  Vec3   euler_deg      = 4;   // XYZ Euler degrees of R (R = Rx*Ry*Rz); unset when !alive
+  Quat   orientation    = 5;   // same rotation as a unit quaternion; unset when !alive
+  repeated int32 marker_ids = 6; // marker ids that contributed to this fit
+  uint32 num_cameras    = 7;   // distinct cameras that contributed
+  double residual_rms   = 8;   // RMS of per-vote centre disagreement, metres
+  bool   alive          = 9;   // detected within the liveness window? false ⇒ stale, ignore the pose
+  int32  last_seen_sec     = 10; // wall-clock (epoch) of the last successful fuse of this cube
+  uint32 last_seen_nanosec = 11; // nanosecond part of last_seen_sec
+  Vec3   velocity          = 12; // cube-centre linear velocity in world, m/s (RDF); only set by the `kf` filter, unset otherwise and when !alive
+}
+
+// All cubes resolved in one frame. Published every frame. `cubes` is the roster
+// of every cube seen at least once since start: freshly fused cubes ride with
+// alive=true, cubes gone past the alive window stay in the roster with alive=false
+// (an explicit "stopped" heartbeat) so subscribers can tell stale from never-seen.
+// Empty only before the first cube is ever detected.
+message CubePoses {
+  int32  stamp_sec     = 1;
+  uint32 stamp_nanosec = 2;
+  uint64 frame_seq     = 3;
+  repeated CubePose cubes = 4;
+}
