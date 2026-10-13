@@ -3,7 +3,7 @@
 Done before or during module 1.
 
 1. Ubuntu 24 on a PC or laptop, no virtual machine, no WSL. Rust stable, tmux.
-2. The sb CLI (0.2.x) installed and `sb doctor` passing.
+2. The sb CLI (0.4.x) installed and `sb doctor` passing.
 3. The camera SDK: `bash drivers/gcam-mvsdk-rs/install.bash` after the clone below. It installs the `gcam-mvsdk-rs` command and downloads the vendor library into `~/.gcam-mvsdk/`. Nothing from the vendor is committed to this repository.
 4. Clone with submodules, set your device name, run the setup script:
 

@@ -228,27 +228,27 @@ html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset
     <p>Each card links to that folder's own page: the mechanism diagram, every source file in one line, what it reads and writes, and the gotchas.</p>
   </div>
   <div class="cards">
-    <a class="card" href="ips_cam_gcam_pub/architecture.html">
+    <a class="card" href="modules/ips_cam_gcam_pub/architecture.html">
       <b>ips_cam_gcam_pub</b><span class="count">x4, one per camera</span>
       <p>Grab a picture, drop it in the shared mailbox.</p>
       <em><span class="tag shm">camera to iceoryx2</span></em>
     </a>
-    <a class="card" href="ips_detect/architecture.html">
+    <a class="card" href="modules/ips_detect/architecture.html">
       <b>ips_detect</b><span class="count">x4, one per camera</span>
       <p>Find the squares. Say where each one is.</p>
       <em><span class="tag net">iceoryx2 to zenoh</span></em>
     </a>
-    <a class="card" href="ips_calib/architecture.html">
+    <a class="card" href="modules/ips_calib/architecture.html">
       <b>ips_calib</b><span class="count">run once by hand</span>
       <p>Where is each camera? Ask a board you already know.</p>
       <em><span class="tag file">zenoh to yaml files</span></em>
     </a>
-    <a class="card" href="ips_track/architecture.html">
+    <a class="card" href="modules/ips_track/architecture.html">
       <b>ips_track</b><span class="count">x1, 90 Hz</span>
       <p>Many markers, many cameras, one cube.</p>
       <em><span class="tag acc">zenoh to zenoh</span></em>
     </a>
-    <a class="card" href="ips_viz/architecture.html">
+    <a class="card" href="modules/ips_viz/architecture.html">
       <b>ips_viz</b><span class="count">x1</span>
       <p>Draw the room so a human can check it.</p>
       <em><span class="tag hw">zenoh to rerun</span></em>

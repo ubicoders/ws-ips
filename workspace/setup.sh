@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-time setup of this clone for the sb CLI (0.2.x). Safe to run again.
+# One-time setup of this clone for the sb CLI. Safe to run again.
 #   1. pull the driver submodules
 #   2. create and activate the sb workspace ws_ips
 #   3. install workspace/flow.yaml with <REPO> replaced by this clone's path
@@ -22,7 +22,7 @@ sb config get device >/dev/null 2>&1 || { echo "no device name set. Run: sb conf
 # sb switches to a vault found under the cwd; run every sb command from $HOME
 # so this repository's messages/ folder is never mistaken for one. SB_CWD
 # overrides that for ips_calib (below), which is not in flow.yaml: sb then finds
-# it as <cwd>/ips_calib/sb.dev.yml.
+# it as <cwd>/ips_calib/sb.dev.yml, so the cwd is the modules/ folder.
 sb() { (cd "${SB_CWD:-$HOME}" && command sb "$@"); }
 
 echo "-- submodules"
@@ -38,7 +38,7 @@ sed "s#<REPO>#$REPO#g" "$REPO/workspace/flow.yaml" > "$SB_HOME/workspaces/$WS/fl
 
 echo "-- sb.dev.yml per module"
 for m in "${MODULES[@]}"; do
-  sed "s#<REPO>#$REPO#g" "$REPO/$m/sb.dev.yml.in" > "$REPO/$m/sb.dev.yml"
+  sed "s#<REPO>#$REPO#g" "$REPO/modules/$m/sb.dev.yml.in" > "$REPO/modules/$m/sb.dev.yml"
   echo "   $m"
 done
 
@@ -58,8 +58,8 @@ echo "-- swarmbotix_io per module"
 # so the publisher's own type is passed back; `sb sub edit` re-renders from the
 # yaml as is. Parsing relies on the fixed layout of the sb.dev.yml.in files.
 render_module() {
-  local m="$1" yml="$REPO/$1/sb.dev.yml" section="" name="" topic="" type=""
-  mkdir -p "$REPO/$m/swarmbotix_io"
+  local m="$1" yml="$REPO/modules/$1/sb.dev.yml" section="" name="" topic="" type=""
+  mkdir -p "$REPO/modules/$m/swarmbotix_io"
   while IFS= read -r line; do
     case "$line" in
       publishers:*)  section=pub ;;
@@ -75,8 +75,8 @@ render_module() {
 for m in "${MODULES[@]}"; do
   echo "   $m"
   # ips_calib is deliberately absent from flow.yaml (calibration is not part of
-  # `sb up`), so sb resolves it from the repository root instead.
-  if [[ $m == ips_calib ]]; then SB_CWD="$REPO" render_module "$m"; else render_module "$m"; fi
+  # `sb up`), so sb resolves it from the modules/ folder instead.
+  if [[ $m == ips_calib ]]; then SB_CWD="$REPO/modules" render_module "$m"; else render_module "$m"; fi
 done
 sb service init --module ips_track   # swarmbotix_io/service.rs for the cam_param queryable
 

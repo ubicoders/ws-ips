@@ -1,0 +1,24 @@
+# sb module definition, template. workspace/setup.sh writes sb.dev.yml from it
+# with <REPO> replaced; sb.dev.yml is gitignored because `root:` is absolute.
+module: ips_detect
+language: rust
+root: <REPO>/modules/ips_detect
+io_dir: swarmbotix_io
+publishers:
+  - name: markers                    # <device>/ws_ips/ips_detect-sbNN/zenoh/markers
+    topic: markers
+    type: ros2/custom/MarkerDetections
+    transport: zenoh
+  - name: debug_image                # <device>/ws_ips/ips_detect-sbNN/iox2/debug_image  (debug: true)
+    topic: debug_image
+    type: ros2/sensor_msgs/Image1280x1024Color
+    transport: iceoryx2
+subscribers:
+  # Bare topic on purpose. The file it generates defaults to this module's own
+  # key; main() overrides `full` at startup to the camera's key
+  # <device>/ws_ips/ips_cam_gcam_pub-sbNN/iox2/image. A leading-slash topic
+  # would bake this machine's device name into the file instead.
+  - name: image
+    topic: image
+    type: ros2/sensor_msgs/Image1280x1024
+    transport: iceoryx2

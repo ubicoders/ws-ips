@@ -1,0 +1,14 @@
+{
+  // ws-ips has no root Cargo.toml: each module is its own crate with its own
+  // Cargo.lock and target/. Tell rust-analyzer which projects to load so that
+  // go-to-definition works in every module (drivers/gcam-mvsdk-rs is loaded as a
+  // path dependency of ips_cam_gcam_pub; list it too for its examples and tests).
+  "rust-analyzer.linkedProjects": [
+    "modules/ips_cam_gcam_pub/Cargo.toml",
+    "modules/ips_detect/Cargo.toml",
+    "modules/ips_track/Cargo.toml",
+    "modules/ips_viz/Cargo.toml",
+    "modules/ips_calib/Cargo.toml",
+    "drivers/gcam-mvsdk-rs/Cargo.toml"
+  ]
+}

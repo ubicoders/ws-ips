@@ -2,7 +2,7 @@
 
 Indoor positioning system (IPS) built in the Ubicoders IPS workshop. Four ceiling cameras watch a room, each frame is scanned for ArUco markers, the markers from all cameras are fused into one rigid pose per marker cube, and the pose is published over zenoh at 90 Hz. The repository ends at that pose on the wire. Feeding it into PX4 is the separate `ws-px4` repository.
 
-Every `ips_*` folder is one swarmbotix (`sb`) module: one standalone Rust crate, one `sb.dev.yml`, one run script, one process per instance (a camera publisher and a detector run as four processes each, one per camera, in their own tmux windows). A module depends on nothing in another module's folder. The pipeline, in run order:
+Every `ips_*` folder under `modules/` is one swarmbotix (`sb`) module: one standalone Rust crate, one `sb.dev.yml`, one run script, one process per instance (a camera publisher and a detector run as four processes each, one per camera, in their own tmux windows). A module depends on nothing in another module's folder. The pipeline, in run order:
 
 ```
 ips_cam_gcam_pub (x4)  ->  ips_detect (x4)  ->  ips_track  ->  ips_viz  ->  rerun
@@ -18,9 +18,9 @@ The wire keys and transports are tabulated in [docs/pipeline.md](docs/pipeline.m
 | `ips_detect` | one per camera, same id as its camera | `ips_detect-sb00` .. `-sb03` | `ips_detect-sbNN` |
 | `ips_track` | singleton, merges the four detector streams | `ips_track` | `ips_track` |
 | `ips_viz` | singleton | `ips_viz` | none (subscribes only) |
-| `ips_calib` | singleton, one-shot, not part of `sb up` | `bash ips_calib/runscript.bash`, own session `ips_calib-dev` | none (subscribes only) |
+| `ips_calib` | singleton, one-shot, not part of `sb up` | `bash modules/ips_calib/runscript.bash`, own session `ips_calib-dev` | none (subscribes only) |
 
-The camera ids come from `ips_cam_gcam_pub/parameters/cam_params.yaml`; the other modules refer to a camera by its index there. `workspace/flow.yaml` lists four modules (not `ips_calib`) and the two per-camera ones under `instances:`.
+The camera ids come from `modules/ips_cam_gcam_pub/parameters/cam_params.yaml`; the other modules refer to a camera by its index there. `workspace/flow.yaml` lists four modules (not `ips_calib`) and the two per-camera ones under `instances:`.
 
 ## Pipeline
 
@@ -80,7 +80,7 @@ Images stay on the host in shared memory (iceoryx2); detections and the cube pos
 
 | Folder | What | Shared how |
 |---|---|---|
-| `ips_cam_gcam_pub/`, `ips_detect/`, `ips_calib/`, `ips_track/`, `ips_viz/` | the five modules | not shared; each builds alone |
+| `modules/` | `ips_cam_gcam_pub`, `ips_detect`, `ips_calib`, `ips_track`, `ips_viz`: the five modules | not shared; each builds alone |
 | `drivers/` | `gcam-mvsdk-rs`, `gcam-mvsdk-py`: the camera driver, git submodules, pinned | path dependency of `ips_cam_gcam_pub` |
 | `messages/` | the two `.proto` payloads | every module compiles them in its own `build.rs`; setup also copies them into the sb vault so `sb pub`/`sb sub` know the types |
 | `calibration/` | intrinsics, the calib board, extrinsics | files read and written at runtime |
@@ -90,9 +90,9 @@ Images stay on the host in shared memory (iceoryx2); detections and the cube pos
 Every module folder has the same skeleton:
 
 ```
-ips_<name>/
+modules/ips_<name>/
 ├── Cargo.toml          crate name = folder name = sb module name = wire segment; lib plus one bin
-├── build.rs            prost on ../messages/custom/*.proto (the four modules that speak protobuf)
+├── build.rs            prost on ../../messages/custom/*.proto (the four modules that speak protobuf)
 ├── sb.dev.yml.in       sb module definition; setup.sh writes sb.dev.yml from it
 ├── runscript.bash      what `sb run` / `sb up` execute; forwards all args
 ├── stopscript.bash     what `sb stop` runs after killing the process
@@ -111,11 +111,11 @@ Build and test inside the module folder (`cargo build --release`, `cargo test`);
 |---|---|---|
 | `drivers/` | full, git submodules, pinned | nobody, read only |
 | `messages/`, `workspace/`, `docs/`, `calibration/intrinsics/`, `calibration/ips_calib.yaml` | full | nobody |
-| `ips_cam_gcam_pub/` | full | nobody |
-| `ips_detect/` | module, `pose_from_corners` stubbed | you, module 2 |
-| `ips_calib/` | module, `fit_extrinsics` and `reprojection_residual` stubbed | you, module 2 |
-| `ips_track/` | module, `lift_to_world`, `fit_cube`, and the Kalman filter (`KalmanFilter::update` plus the `Cv1` and `Mekf` predict and update steps) stubbed | you, module 3 |
-| `ips_viz/` | full | nobody |
+| `modules/ips_cam_gcam_pub/` | full | nobody |
+| `modules/ips_detect/` | module, `pose_from_corners` stubbed | you, module 2 |
+| `modules/ips_calib/` | module, `fit_extrinsics` and `reprojection_residual` stubbed | you, module 2 |
+| `modules/ips_track/` | module, `lift_to_world`, `fit_cube`, and the Kalman filter (`KalmanFilter::update` plus the `Cv1` and `Mekf` predict and update steps) stubbed | you, module 3 |
+| `modules/ips_viz/` | full | nobody |
 | `calibration/extrinsics/` | empty | `ips_calib`, at runtime |
 
 Each module's README states its inputs, outputs, wire keys, and the stubs to fill. A stub compiles and returns `todo!()`; its test in the module's `tests/` fails until you fill it, and `cargo test` inside the module folder is the acceptance check. A `solution/module<N>` tag is pushed after each module's deadline.
@@ -156,14 +156,14 @@ sb run ips_detect                    # all cameras in detector_params.yaml, one 
 sb run ips_detect --id sb00          # one detector, this window
 sb stop ips_detect                   # closes every ips_detect-sbNN window
 
-SB_NO_TMUX=1 bash ips_detect/runscript.bash   # no tmux: one process, one thread per camera (CI, IDE)
+SB_NO_TMUX=1 bash modules/ips_detect/runscript.bash   # no tmux: one process, one thread per camera (CI, IDE)
 ```
 
-Debug options, all in `ips_detect/parameters/detector_params.yaml` (restart the detectors after editing):
+Debug options, all in `modules/ips_detect/parameters/detector_params.yaml` (restart the detectors after editing):
 
 | Key | Effect |
 |---|---|
-| `debug: true` | publish an annotated colour frame on `.../ips_detect-sbNN/iox2/debug_image`; set `debug_show_images: true` in `ips_viz/parameters/viz_params.yaml` to see the 2x2 grid in rerun |
+| `debug: true` | publish an annotated colour frame on `.../ips_detect-sbNN/iox2/debug_image`; set `debug_show_images: true` in `modules/ips_viz/parameters/viz_params.yaml` to see the 2x2 grid in rerun |
 | `save: <dir>` | write raw frames to `<dir>/sbNN/<seq>.png`; `""` is off |
 | `save_frames: N` | stop saving after N frames; `0` is unlimited |
 | `family`, `marker_size` | `aruco` / `0.087` for the cubes, `april` / `0.185` for calibration |
@@ -180,7 +180,7 @@ rerun                                # the viewer app, start it first
 sb run ips_viz                       # streams to rerun+http://127.0.0.1:9876/proxy
 sb stop ips_viz                      # restarted rerun? restart ips_viz too, the stream does not reconnect
 
-bash ips_calib/runscript.bash        # calibration, one-shot, own tmux session ips_calib-dev; not in flow.yaml
+bash modules/ips_calib/runscript.bash        # calibration, one-shot, own tmux session ips_calib-dev; not in flow.yaml
 ```
 
 ### Peek at a topic
@@ -197,4 +197,4 @@ sb topic listen /<device>/ws_ips/ips_track/zenoh/cube_poses -n 1
 
 If a zenoh listen prints `schema: null` and hex, that module's publisher predates the type tag: re-render it with `sb pub edit <name> -m <type>` inside the module folder (or re-run `bash workspace/setup.sh`, which re-renders every module), rebuild, restart.
 
-`ips_viz` debug plots are toggled in `ips_viz/parameters/viz_params.yaml`: `debug_show_pos_xyz`, `debug_show_vel_xyz` (filled only by the `kf` filter), `debug_show_ang_xyz`, `debug_show_images`. The tracker's filter is `filter:` in `ips_track/parameters/tracker_params.yaml` (`lp`, `oneeuro`, `kf`).
+`ips_viz` debug plots are toggled in `modules/ips_viz/parameters/viz_params.yaml`: `debug_show_pos_xyz`, `debug_show_vel_xyz` (filled only by the `kf` filter), `debug_show_ang_xyz`, `debug_show_images`. The tracker's filter is `filter:` in `modules/ips_track/parameters/tracker_params.yaml` (`lp`, `oneeuro`, `kf`).

@@ -2,10 +2,10 @@
 # with <REPO> replaced by the absolute path of this clone. See workspace/README.md.
 
 modules:
-  ips_cam_gcam_pub: <REPO>/ips_cam_gcam_pub/sb.dev.yml
-  ips_detect:       <REPO>/ips_detect/sb.dev.yml
-  ips_track:        <REPO>/ips_track/sb.dev.yml
-  ips_viz:          <REPO>/ips_viz/sb.dev.yml
+  ips_cam_gcam_pub: <REPO>/modules/ips_cam_gcam_pub/sb.dev.yml
+  ips_detect:       <REPO>/modules/ips_detect/sb.dev.yml
+  ips_track:        <REPO>/modules/ips_track/sb.dev.yml
+  ips_viz:          <REPO>/modules/ips_viz/sb.dev.yml
 
 # One id per camera. Must match the camera lists in every module's parameters yaml.
 instances:

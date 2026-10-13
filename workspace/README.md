@@ -27,7 +27,7 @@ Every key is `<device>/ws_ips/<module>[-<id>]/<transport>/<topic>`. `<device>` c
 
 `ips_cam_gcam_pub`, `ips_detect`, `ips_track`, `ips_viz`. `sb up` starts every module listed here, one tmux window each in the session `sb-ws_ips`.
 
-`ips_calib` is deliberately absent. Calibration is a one-shot step, not part of the live pipeline, so `sb run ips_calib` fails on purpose. Start it with `bash ips_calib/runscript.bash`, which opens its own tmux session `ips_calib-dev`. `setup.sh` still generates its `swarmbotix_io/`.
+`ips_calib` is deliberately absent. Calibration is a one-shot step, not part of the live pipeline, so `sb run ips_calib` fails on purpose. Start it with `bash modules/ips_calib/runscript.bash`, which opens its own tmux session `ips_calib-dev`. `setup.sh` still generates its `swarmbotix_io/`.
 
 ### instances
 
@@ -47,7 +47,7 @@ sb does not read `instances:` at launch. `sb up` starts each module with no argu
 | `sb run ips_detect --id sb00` | one detector, in the current window |
 | `sb run ips_track` | the singleton tracker (likewise `ips_viz`) |
 | `sb stop ips_detect` | kills the module and its camera windows (`stopscript.bash`) |
-| `bash ips_calib/runscript.bash` | calibration, not part of `sb up` |
+| `bash modules/ips_calib/runscript.bash` | calibration, not part of `sb up` |
 
 ## setup.sh
 

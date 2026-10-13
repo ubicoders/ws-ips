@@ -1,0 +1,12 @@
+# sb module definition, template. workspace/setup.sh writes sb.dev.yml from it
+# with <REPO> replaced; sb.dev.yml is gitignored because `root:` is absolute.
+module: ips_cam_gcam_pub
+language: rust
+root: <REPO>/modules/ips_cam_gcam_pub
+io_dir: swarmbotix_io
+publishers:
+  - name: image                      # <device>/ws_ips/ips_cam_gcam_pub-sbNN/iox2/image
+    topic: image
+    type: ros2/sensor_msgs/Image1280x1024
+    transport: iceoryx2
+subscribers: []

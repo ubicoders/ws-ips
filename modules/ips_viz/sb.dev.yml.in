@@ -1,0 +1,19 @@
+# sb module definition, template. workspace/setup.sh writes sb.dev.yml from it
+# with <REPO> replaced; sb.dev.yml is gitignored because `root:` is absolute.
+module: ips_viz
+language: rust
+root: <REPO>/modules/ips_viz
+io_dir: swarmbotix_io
+publishers: []
+subscribers:
+  # Bare topics on purpose; main() overrides `full` at startup to
+  #   <device>/ws_ips/ips_track/zenoh/cube_poses
+  #   <device>/ws_ips/ips_detect-sbNN/iox2/debug_image   (one per camera)
+  - name: cube_poses
+    topic: cube_poses
+    type: ros2/custom/CubePoses
+    transport: zenoh
+  - name: debug_image
+    topic: debug_image
+    type: ros2/sensor_msgs/Image1280x1024Color
+    transport: iceoryx2

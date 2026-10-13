@@ -1,0 +1,13 @@
+# cam_params.yaml: all settings for ips_cam_gcam_pub. Read at startup, no flags
+# besides --id. The driver is drivers/gcam-mvsdk-rs (HuaTeng MVSDK, loaded at run time).
+
+# Camera names as stored inside the cameras (`gcam-mvsdk-rs rename <serial> sb00`).
+# Other modules refer to a camera by its index in this list: 0 -> sb00, 1 -> sb01, ...
+# (name = "sb" + two-digit index). Predefined, not discovered.
+# e.g. `sb run ips_cam_gcam_pub --id sb00` publishes <device>/ws_ips/ips_cam_gcam_pub-sb00/iox2/image
+cameras: [sb00, sb01, sb02, sb03]
+# this is the index for other modules. i.e [ 0, 1,2,3]
+exposure_us: 5000       # manual exposure; 5 ms, longer blurs the corners
+frame_rate_hz: 90        # camera-side cap; 0 = none (sensor max, about 91 Hz)
+packet_bytes: 1500      # GigE packet size; 9000 only if every switch on the path passes jumbo frames
+num_buffers: 8          # driver receive buffers

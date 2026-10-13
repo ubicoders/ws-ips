@@ -1,0 +1,9 @@
+# detector_params.yaml: all settings for ips_detect. Read at startup, no flags.
+# Camera index into modules/ips_cam_gcam_pub/parameters/cam_params.yaml: 0 -> sb00, 1 -> sb01, ...
+# e.g. 0 subscribes <device>/ws_ips/ips_cam_gcam_pub-sb00/iox2/image and publishes .../ips_detect-sb00/zenoh/markers
+cameras: [0, 1, 2, 3]   # --id sb00 runs one
+family: aruco           # aruco (ArUco 4x4) | april (AprilTag 36h11, calibration only)
+marker_size: 0.087      # metres, measured tag side. Cube 0.087, calib board 0.185.
+debug: false            # true publishes an annotated colour frame for ips_viz
+save: ""                # save raw frames to <save>/<inst>/<seq>.png; empty = off
+save_frames: 0          # stop after N frames; 0 = unlimited

@@ -9,4 +9,4 @@ Module 2, first half. Name each camera, put it on the network, and see its frame
 - `gcam-mvsdk-rs grab sb00` saves a test frame; check focus and exposure on it.
 - `sb run ips_cam_gcam_pub --id sb00` publishes that camera. `sb topic list` shows the image key.
 
-Rules: exposure 5 ms (motion blur kills corner detection), jumbo frames only if the switch supports them (`packet_bytes` in `ips_cam_gcam_pub/parameters/cam_params.yaml`), one subnet for cameras and PC, and a 32 MB socket receive buffer or the cameras throttle themselves to about 60 Hz.
+Rules: exposure 5 ms (motion blur kills corner detection), jumbo frames only if the switch supports them (`packet_bytes` in `modules/ips_cam_gcam_pub/parameters/cam_params.yaml`), one subnet for cameras and PC, and a 32 MB socket receive buffer or the cameras throttle themselves to about 60 Hz.
