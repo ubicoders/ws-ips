@@ -1,5 +1,5 @@
 //! cam_param: the camera-parameter routes on the sb service router
-//! (`swarmbotix_io/service.rs`, included as [`crate::service`]).
+//! (`swarmbotix_io/services/cam_param.rs`, included as [`crate::service`]).
 //!
 //! Serves each camera's intrinsics `K` and extrinsics `R`, `t` from the
 //! `calibration/extrinsics/sbNN_full.yaml` files, hosted inside the tracker so
@@ -103,25 +103,22 @@ pub fn svc_augment_rt(doc: &Value) -> Option<Value> {
 pub fn start_cam_param_service(dir: PathBuf) -> Option<service::ServiceApp> {
     let mut app = service::ServiceApp::open();
 
+    // The service base is <device>/ws_ips/ips_track/zenoh/service/cam_param
+    // (sb 0.5.0 appends the service name), so the routes are relative to that.
     // Root: advertise the routes and the cameras currently available.
     let root_dir = dir.clone();
     app.get("/", move |_req: service::Req| {
         json!({
             "module": service::MODULE,
-            "routes": ["/", "/cam_params", "/cam_param/<id>"],
+            "routes": ["/", "/<id>"],
             "cameras": svc_list_cameras(&root_dir),
         })
     });
 
-    // The available camera ids.
-    let list_dir = dir.clone();
-    app.get("/cam_params", move |_req: service::Req| {
-        json!(svc_list_cameras(&list_dir))
-    });
-
-    // One camera's K and R|t. The id is the last segment of the matched key.
+    // One camera's K and R|t at .../service/cam_param/<id>. The id is the last
+    // segment of the matched key.
     let cam_dir = dir.clone();
-    app.get("/cam_param/*", move |req: service::Req| {
+    app.get("/*", move |req: service::Req| {
         let id = req.key.rsplit('/').next().unwrap_or("");
         svc_load_cam(&cam_dir, id)
     });

@@ -25,7 +25,7 @@ Subscribes to every detector's marker stream, lifts each marker into the world f
 
 ```
 src/main.rs            parameters, extrinsics, the 90 Hz tick loop, encoding, publish
-src/cam_param.rs       the cam_param routes on the sb service router (swarmbotix_io/service.rs)
+src/cam_param.rs       the cam_param routes on the sb service router (swarmbotix_io/services/cam_param.rs)
 src/cube.rs            cube model, lift_to_world, fit_cube                      <- stubs
 src/filter.rs          the Filter enum and the none | lp | oneeuro | kf selection
 src/filter_lp.rs       exponential low-pass
@@ -34,7 +34,7 @@ src/filter_kf.rs       constant-velocity Kalman, KalmanFilter::update           
 src/fps.rs             rate meter
 tests/
 parameters/tracker_params.yaml
-sb.dev.yml.in          subscriber `markers`, publisher `cube_poses`
+sb.dev.yml             subscriber `markers`, publisher `cube_poses`, service `cam_param`
 src/lib.rs             crate root: the swarmbotix_io includes, the prost types, the modules above
 build.rs               prost on ../../messages/custom/*.proto
 ```

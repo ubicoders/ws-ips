@@ -4,7 +4,7 @@
 //! zenoh as protobuf. The binary in `main.rs` drives these modules.
 
 // sb-generated iceoryx2 subscriber for `ros2/sensor_msgs/Image1280x1024`.
-// Do not edit, `sb sub edit` regenerates it. Its baked default key is this
+// Do not edit, `sb install .` regenerates it. Its baked default key is this
 // module's own; `camera` overrides `full` with the camera publisher's key.
 #[path = "../swarmbotix_io/subscribers/image.rs"]
 pub mod image;

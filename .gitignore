@@ -3,8 +3,7 @@ __pycache__/
 *.pyc
 *.rrd
 
-# Generated per clone by workspace/setup.sh (they bake the device name, the
-# workspace and absolute paths of this machine). Templates are sb.dev.yml.in.
-sb.dev.yml
+# Generated per clone by `sb install .` from flow.yaml and each module's
+# sb.dev.yml (the files bake in this machine's device name and workspace).
 swarmbotix_io/
 

@@ -1,10 +1,8 @@
-# sb module definition, template. workspace/setup.sh writes sb.dev.yml from it
-# with <REPO> replaced; sb.dev.yml is gitignored because `root:` is absolute.
-# The cam_param queryable is not a pub/sub entry: setup.sh runs
-# `sb service init --module ips_track`, which writes swarmbotix_io/service.rs.
+# sb module definition (sb 0.5.0+): portable, committed. No root: line, so the
+# module root is this folder. `sb install .` at the repository root renders
+# swarmbotix_io/ from it.
 module: ips_track
 language: rust
-root: <REPO>/modules/ips_track
 io_dir: swarmbotix_io
 publishers:
   - name: cube_poses                 # <device>/ws_ips/ips_track/zenoh/cube_poses
@@ -18,3 +16,6 @@ subscribers:
     topic: markers
     type: ros2/custom/MarkerDetections
     transport: zenoh
+# The cam_param queryable: rendered to swarmbotix_io/services/cam_param.rs.
+services:
+  - name: cam_param

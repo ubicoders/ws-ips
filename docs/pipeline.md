@@ -19,7 +19,7 @@ The wildcard is `$*`, not `*`: zenoh allows `*` only as a whole segment, and the
 
 ## Instances
 
-A camera and the detector reading it share an id, `sb00` to `sb03`. The id is the camera's user-set name, written once with `gcam-mvsdk-rs rename`, and becomes the module suffix on the wire. `workspace/flow.yaml` lists the instances; each module's `parameters/` yaml lists the cameras it handles.
+A camera and the detector reading it share an id, `sb00` to `sb03`. The id is the camera's user-set name, written once with `gcam-mvsdk-rs rename`, and becomes the module suffix on the wire. `flow.yaml` lists the instances; each module's `parameters/` yaml lists the cameras it handles.
 
 `sb up` starts every module in `flow.yaml` with no arguments, one tmux window each in the session `sb-ws_ips`. The run scripts of `ips_cam_gcam_pub` and `ips_detect` open one window per camera in their parameters yaml, named `ips_cam_gcam_pub-sbNN` and `ips_detect-sbNN`, each a separate process started with `--id sbNN`, and exit, so their own window closes. The session then holds four camera windows, four detector windows, `ips_track` and `ips_viz`. `ips_track` merges the four detector streams. `sb stop <module>` closes that module's camera windows; `sb run <module> --id sbNN` runs a single camera by hand. `ips_calib` is not in `flow.yaml`: start it with `bash modules/ips_calib/runscript.bash` when calibrating. Switch windows with `Ctrl+b w`.
 

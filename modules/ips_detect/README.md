@@ -33,7 +33,7 @@ src/view.rs          the annotated debug frame
 src/fps.rs           rate meter
 tests/pose_from_corners.rs
 parameters/detector_params.yaml
-sb.dev.yml.in        subscriber `image`, publishers `markers`, `debug_image`
+sb.dev.yml           subscriber `image`, publishers `markers`, `debug_image`
 src/lib.rs           crate root: the swarmbotix_io includes, the prost types, the modules above
 build.rs             prost on ../../messages/custom/*.proto
 ```

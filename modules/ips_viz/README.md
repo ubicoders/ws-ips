@@ -27,7 +27,7 @@ Subscribes to the cube poses from `ips_track`, fetches each camera's extrinsics 
 src/main.rs         the cam_param fetch, the subscribe loop
 src/visualize.rs    parameters, cube box and camera extrinsics, the rerun blueprint, cameras, cubes, plots, debug images
 parameters/viz_params.yaml
-sb.dev.yml.in       subscribers `cube_poses`, `debug_image`
+sb.dev.yml          subscribers `cube_poses`, `debug_image`
 src/lib.rs          crate root: the swarmbotix_io includes, the prost types, visualize
 build.rs            prost on ../../messages/custom/*.proto
 ```

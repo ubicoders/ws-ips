@@ -28,7 +28,7 @@ nalgebra = "0.33"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
 
-# The cam_param service (swarmbotix_io/service.rs) speaks JSON: each
+# The cam_param service (swarmbotix_io/services/cam_param.rs) speaks JSON: each
 # sbNN_full.yaml is read into a serde_json::Value and returned with the 3x4 [R|t].
 serde_json = "1"
 

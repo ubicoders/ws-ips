@@ -1,8 +1,8 @@
-# sb module definition, template. workspace/setup.sh writes sb.dev.yml from it
-# with <REPO> replaced; sb.dev.yml is gitignored because `root:` is absolute.
+# sb module definition (sb 0.5.0+): portable, committed. No root: line, so the
+# module root is this folder. `sb install .` at the repository root renders
+# swarmbotix_io/ from it.
 module: ips_detect
 language: rust
-root: <REPO>/modules/ips_detect
 io_dir: swarmbotix_io
 publishers:
   - name: markers                    # <device>/ws_ips/ips_detect-sbNN/zenoh/markers

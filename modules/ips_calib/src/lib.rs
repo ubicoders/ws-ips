@@ -3,7 +3,7 @@
 //! here so the integration tests can reach them.
 
 // sb-generated zenoh subscriber for `ros2/custom/MarkerDetections`. Do not edit,
-// `sb sub edit` regenerates it. Only its `TopicOverrides::key_expr()` is used, to
+// `sb install .` regenerates it. Only its `TopicOverrides::key_expr()` is used, to
 // render the `ips_detect-$*` fan-in key; its `try_recv_latest` keeps one sample
 // and would drop the other cameras' frames, so main declares its own subscriber.
 // The allow covers one lint in the generated code (`e.into()` to the same type).

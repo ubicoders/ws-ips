@@ -22,4 +22,9 @@ if [[ -z "${TMUX:-}" ]] && [[ "${SB_NO_TMUX:-0}" != "1" ]] && command -v tmux >/
     "trap '' INT; (trap - INT; bash $(printf %q "${__sb_self}")${__sb_args}); ec=\$?; echo; echo \"[app exited \$ec - press any key to close]\"; read -n 1"
 fi
 
+# The cam_param service router is a user-owned file that `sb install .` leaves
+# alone; render it when missing (fresh clone). After a device-name change,
+# refresh it with: sb io update --services ips_track
+[[ -f swarmbotix_io/services/cam_param.rs ]] || sb io update --services ips_track
+
 exec cargo run --release -- "$@"

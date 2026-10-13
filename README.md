@@ -10,7 +10,7 @@ ips_cam_gcam_pub (x4)  ->  ips_detect (x4)  ->  ips_track  ->  ips_viz  ->  reru
                                   \-> ips_calib (one-shot, writes calibration/extrinsics/) -> ips_track
 ```
 
-The wire keys and transports are tabulated in [docs/pipeline.md](docs/pipeline.md); the workspace file is explained in [workspace/README.md](workspace/README.md).
+The wire keys and transports are tabulated in [docs/pipeline.md](docs/pipeline.md); the workspace file is explained in [docs/workspace.md](docs/workspace.md).
 
 | Module | Copies | Process and tmux window | Wire segment |
 |---|---|---|---|
@@ -20,7 +20,7 @@ The wire keys and transports are tabulated in [docs/pipeline.md](docs/pipeline.m
 | `ips_viz` | singleton | `ips_viz` | none (subscribes only) |
 | `ips_calib` | singleton, one-shot, not part of `sb up` | `bash modules/ips_calib/runscript.bash`, own session `ips_calib-dev` | none (subscribes only) |
 
-The camera ids come from `modules/ips_cam_gcam_pub/parameters/cam_params.yaml`; the other modules refer to a camera by its index there. `workspace/flow.yaml` lists four modules (not `ips_calib`) and the two per-camera ones under `instances:`.
+The camera ids come from `modules/ips_cam_gcam_pub/parameters/cam_params.yaml`; the other modules refer to a camera by its index there. `flow.yaml` lists all five modules (`ips_calib` with `up: false`, so `sb up` skips it) and the two per-camera ones under `instances:`.
 
 ## Pipeline
 
@@ -82,9 +82,9 @@ Images stay on the host in shared memory (iceoryx2); detections and the cube pos
 |---|---|---|
 | `modules/` | `ips_cam_gcam_pub`, `ips_detect`, `ips_calib`, `ips_track`, `ips_viz`: the five modules | not shared; each builds alone |
 | `drivers/` | `gcam-mvsdk-rs`, `gcam-mvsdk-py`: the camera driver, git submodules, pinned | path dependency of `ips_cam_gcam_pub` |
-| `messages/` | the two `.proto` payloads | every module compiles them in its own `build.rs`; setup also copies them into the sb vault so `sb pub`/`sb sub` know the types |
+| `messages/` | the two `.proto` payloads | every module compiles them in its own `build.rs`; `sb install .` also imports them into the sb vault so the io generators know the types |
 | `calibration/` | intrinsics, the calib board, extrinsics | files read and written at runtime |
-| `workspace/` | `flow.yaml` (modules, instances), `setup.sh`, its `README.md` | sb workspace |
+| `flow.yaml` | the sb workspace: modules (`ips_calib` with `up: false`), messages, instances | read by `sb install .` |
 | `docs/` | the modules' lessons, `pipeline.md`, recorded captures in `data/` | reading |
 
 Every module folder has the same skeleton:
@@ -93,11 +93,11 @@ Every module folder has the same skeleton:
 modules/ips_<name>/
 ├── Cargo.toml          crate name = folder name = sb module name = wire segment; lib plus one bin
 ├── build.rs            prost on ../../messages/custom/*.proto (the four modules that speak protobuf)
-├── sb.dev.yml.in       sb module definition; setup.sh writes sb.dev.yml from it
+├── sb.dev.yml          sb module definition (publishers, subscribers, services), portable, committed
 ├── runscript.bash      what `sb run` / `sb up` execute; forwards all args
 ├── stopscript.bash     what `sb stop` runs after killing the process
 ├── parameters/         <name>_params.yaml, read at startup
-├── swarmbotix_io/      sb-generated pub/sub code, per clone, gitignored
+├── swarmbotix_io/      sb-generated pub/sub/service code, written by `sb install .`, gitignored
 ├── src/                lib.rs (includes swarmbotix_io and the prost types), main.rs, this module's own code and stubs
 ├── tests/              one test per stub, on synthetic data and docs/data captures
 └── README.md           inputs, outputs, wire keys, stubs
@@ -110,7 +110,7 @@ Build and test inside the module folder (`cargo build --release`, `cargo test`);
 | Folder | At handout | Filled by |
 |---|---|---|
 | `drivers/` | full, git submodules, pinned | nobody, read only |
-| `messages/`, `workspace/`, `docs/`, `calibration/intrinsics/`, `calibration/ips_calib.yaml` | full | nobody |
+| `messages/`, `flow.yaml`, `docs/`, `calibration/intrinsics/`, `calibration/ips_calib.yaml` | full | nobody |
 | `modules/ips_cam_gcam_pub/` | full | nobody |
 | `modules/ips_detect/` | module, `pose_from_corners` stubbed | you, module 2 |
 | `modules/ips_calib/` | module, `fit_extrinsics` and `reprojection_residual` stubbed | you, module 2 |
@@ -125,9 +125,9 @@ Each module's README states its inputs, outputs, wire keys, and the stubs to fil
 ```bash
 git clone --recurse-submodules https://github.com/ubicoders/ws-ips
 cd ws-ips
-sb config set device <yourname>   # first segment of every wire key; setup bakes it in
-bash workspace/setup.sh           # sb workspace, sb.dev.yml, message vault, swarmbotix_io, submodules
-sb up                             # every module in workspace/flow.yaml
+sb config set device <yourname>   # first segment of every wire key; the generated code bakes it in
+sb install .                      # flow.yaml -> sb workspace ws_ips, messages into the vault, swarmbotix_io per module
+sb up                             # every module in flow.yaml
 ```
 
 Details in [docs/00_setup.md](docs/00_setup.md).
@@ -139,7 +139,7 @@ Three levels. Every command works from any directory; the run scripts `cd` to th
 ### 1. Everything
 
 ```bash
-sb up        # every module in workspace/flow.yaml: 4 camera windows, 4 detector windows, ips_track, ips_viz
+sb up        # every module in flow.yaml: 4 camera windows, 4 detector windows, ips_track, ips_viz
 sb down      # kill the whole tmux session
 ```
 
@@ -195,6 +195,6 @@ sb topic listen /<device>/ws_ips/ips_detect-sb00/zenoh/markers -n 1
 sb topic listen /<device>/ws_ips/ips_track/zenoh/cube_poses -n 1
 ```
 
-If a zenoh listen prints `schema: null` and hex, that module's publisher predates the type tag: re-render it with `sb pub edit <name> -m <type>` inside the module folder (or re-run `bash workspace/setup.sh`, which re-renders every module), rebuild, restart.
+If a zenoh listen prints `schema: null` and hex, that module's publisher predates the type tag: re-render it with `sb io update <module>` (or `sb install .` at the repository root, which re-renders every module), rebuild, restart.
 
 `ips_viz` debug plots are toggled in `modules/ips_viz/parameters/viz_params.yaml`: `debug_show_pos_xyz`, `debug_show_vel_xyz` (filled only by the `kf` filter), `debug_show_ang_xyz`, `debug_show_images`. The tracker's filter is `filter:` in `modules/ips_track/parameters/tracker_params.yaml` (`lp`, `oneeuro`, `kf`).

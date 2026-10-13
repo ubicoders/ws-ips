@@ -29,7 +29,7 @@ src/fit.rs           fit_extrinsics, reprojection_residual                      
 src/writer.rs        sbNN_full.yaml
 tests/fit.rs
 parameters/calib_params.yaml
-sb.dev.yml.in        subscriber `markers`
+sb.dev.yml           subscriber `markers`
 src/lib.rs           crate root: the swarmbotix_io include, the prost types, the modules above
 build.rs             prost on ../../messages/custom/*.proto
 ```
@@ -51,7 +51,7 @@ A camera needs at least `min_markers` distinct board ids in view or it is skippe
 
 ```bash
 bash modules/ips_calib/runscript.bash   # one shot, exits when done; own tmux session ips_calib-dev
-                                # (not in workspace/flow.yaml, so `sb up` never starts it)
+                                # (`up: false` in flow.yaml, so `sb up` never starts it; `sb run ips_calib` works too)
 cargo test                  # inside this folder; the acceptance check
 ```
 

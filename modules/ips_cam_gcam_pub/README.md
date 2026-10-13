@@ -29,7 +29,7 @@ runscript.bash     no --id: opens one tmux window per camera running `--id sbNN`
 src/capture.rs     cam_params.yaml and --id, open by name, exposure, packet size, MONO8, grab into the payload
 src/lib.rs         crate root: the swarmbotix_io include and capture
 parameters/cam_params.yaml
-sb.dev.yml.in      publisher `image`
+sb.dev.yml         publisher `image`
 ```
 
 Depends on `drivers/gcam-mvsdk-rs` by path (`default-features = false`) and on iceoryx2 `=0.9.3`.

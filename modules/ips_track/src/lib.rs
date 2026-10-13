@@ -23,9 +23,9 @@ pub mod markers_sub;
 #[allow(clippy::all)]
 pub mod cube_poses_pub;
 
-// sb service router (written by `sb service init --module ips_track`). Generated,
-// do not edit. The cam_param routes registered on it live in `cam_param`.
-#[path = "../swarmbotix_io/service.rs"]
+// sb service router, rendered by `sb install .` from the `services:` entry of
+// sb.dev.yml (`cam_param`). Generated, do not edit.
+#[path = "../swarmbotix_io/services/cam_param.rs"]
 #[allow(clippy::all)]
 pub mod service;
 
