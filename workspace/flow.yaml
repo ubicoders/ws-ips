@@ -1,78 +1,13 @@
-# sb workspace definition for ws-ips.
-# workspace/setup.sh copies it to ~/.swarmbotix/workspaces/ws_ips/flow.yaml with
-# <REPO> replaced by the absolute path of this clone.
-#
-# sb reads two things from this file: which modules exist (`modules:`) and which
-# instances a module has (`instances:`). It does not list edges; an edge exists
-# when one module subscribes to the key another one publishes. Those edges are
-# drawn below so the file reads as the pipeline. Every key is
-# <device>/ws_ips/<module>[-<id>]/<transport>/<topic>; <device> comes from
-# `sb config get device`, ws_ips is this workspace, and `-<id>` is the instance.
-#
-#   CAMERAS (GigE, HuaTeng)                       ips_cam_gcam_pub  (Rust, x4: sb00..sb03)
-#   ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐           ┌────────────────────────────────┐
-#   │ sb00 │ │ sb01 │ │ sb02 │ │ sb03 │ ───────▶  │ capture MONO8 1280x1024        │
-#   └──────┘ └──────┘ └──────┘ └──────┘           │ publish over iceoryx2 (shmem)  │
-#                                                 └───────────────┬────────────────┘
-#                                                                 │ iox2  sensor_msgs/Image1280x1024
-#                                                                 │ .../ips_cam_gcam_pub-sbNN/iox2/image
-#                                                                 ▼
-#                                                 ips_detect  (Rust, x4: sb00..sb03)
-#                                                 ┌────────────────────────────────┐
-#                                                 │ OpenCV aruco, pose per marker  │
-#                                                 │ in the camera frame            │
-#                                                 └───────┬────────────────┬───────┘
-#                                                         │ zenoh  custom/MarkerDetections
-#                                                         │ .../ips_detect-sbNN/zenoh/markers
-#                                   ┌─────────────────────┤                │ iox2  debug_image
-#                                   ▼                     ▼                │ (debug: true)
-#     ips_calib  (one-shot, x1)                   ips_track  (x1)          │
-#     ┌──────────────────────────┐  calibration/  ┌────────────────────────┴───────┐
-#     │ AprilTag board           │  extrinsics/   │ subscribe ips_detect-$*/markers│
-#     │ Kabsch fit per camera    │ ──sbNN_full──▶ │ lift to world, fit each cube,  │
-#     │ writes K + R|t           │  .yaml (file)  │ filter, publish at 90 Hz       │
-#     └──────────────────────────┘                └──────┬──────────────────┬──────┘
-#                                                        │ zenoh            │ zenoh queryable
-#                                                        │ custom/CubePoses │ service/cam_param/sbNN
-#                                                        │ .../ips_track/zenoh/cube_poses
-#                                                        ▼                  ▼
-#                                                 ips_viz  (x1)
-#                                                 ┌────────────────────────────────┐
-#                                                 │ cube boxes, camera axes, plots │
-#                                                 │ optional 2x2 debug images      │
-#                                                 └───────────────┬────────────────┘
-#                                                                 │ gRPC  rerun+http://127.0.0.1:9876/proxy
-#                                                                 ▼
-#                                                 rerun viewer (not an sb module)
-#
-# Launch: `sb up` starts one window per module with no arguments, and a module
-# started without --id runs every instance listed in its parameters/ yaml in one
-# process (one thread per camera). `sb run <module> --id sbNN` runs one instance.
+# sb workspace ws_ips. setup.sh installs this file to ~/.swarmbotix/workspaces/ws_ips/
+# with <REPO> replaced by the absolute path of this clone. See workspace/README.md.
 
 modules:
   ips_cam_gcam_pub: <REPO>/ips_cam_gcam_pub/sb.dev.yml
   ips_detect:       <REPO>/ips_detect/sb.dev.yml
-  ips_calib:        <REPO>/ips_calib/sb.dev.yml
   ips_track:        <REPO>/ips_track/sb.dev.yml
   ips_viz:          <REPO>/ips_viz/sb.dev.yml
 
-# Instances: only the modules that run several copies side by side. An instance
-# id becomes the module suffix on the wire (ips_detect-sb00) and is the camera's
-# user-set name, written into the camera once with
-# `gcam-mvsdk-rs rename <serial> sbNN`. A detector and the camera it reads share
-# the id.
-#
-# CAMERA COUNT: the 4 cameras are predefined, not discovered. The ids below must
-# agree with the camera list in every module's parameters yaml
-# (cam_params, detector_params, calib_params, tracker_params, viz_params).
-# Adding a camera means adding it in all six places.
-#
-# ips_calib, ips_track and ips_viz are deliberately absent. There is a single
-# copy of each (one tracker fuses all cameras, one viewer draws it, one calib
-# pass writes the extrinsics), so they carry no suffix and use plain keys
-# (ips_track/zenoh/cube_poses). Listing one here would give it an id and turn
-# its key into ips_track-<id>/..., which nothing expects. Being under
-# `modules:` above is what makes them part of the workspace.
+# One id per camera. Must match the camera lists in every module's parameters yaml.
 instances:
   ips_cam_gcam_pub:
     - id: sb00

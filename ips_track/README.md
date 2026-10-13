@@ -25,9 +25,9 @@ Subscribes to every detector's marker stream, lifts each marker into the world f
 
 ```
 src/main.rs            parameters, extrinsics, the 90 Hz tick loop, encoding, publish
-src/service.rs         the cam_param routes on the sb service router (swarmbotix_io/service.rs)
+src/cam_param.rs       the cam_param routes on the sb service router (swarmbotix_io/service.rs)
 src/cube.rs            cube model, lift_to_world, fit_cube                      <- stubs
-src/filter.rs          the Filter trait and the none | lp | oneeuro | kf selection
+src/filter.rs          the Filter enum and the none | lp | oneeuro | kf selection
 src/filter_lp.rs       exponential low-pass
 src/filter_one_euro.rs 1 Euro filter
 src/filter_kf.rs       constant-velocity Kalman, KalmanFilter::update            <- stub
@@ -35,7 +35,8 @@ src/fps.rs             rate meter
 tests/
 parameters/tracker_params.yaml
 sb.dev.yml.in          subscriber `markers`, publisher `cube_poses`
-build.rs               prost on messages/custom/*.proto out of the sb vault
+src/lib.rs             crate root: the swarmbotix_io includes, the prost types, the modules above
+build.rs               prost on ../messages/custom/*.proto
 ```
 
 Depends on zenoh 1.9, prost, nalgebra, serde. No OpenCV, no iceoryx2.
@@ -47,8 +48,8 @@ Scaffold. The subscribers, the 90 Hz tick loop, the stale-camera drop, the publi
 | Stub | Where | Test |
 |---|---|---|
 | `lift_to_world`: a marker pose in camera frame plus the camera's `R`, `t` to a pose in the world frame | `src/cube.rs` | synthetic |
-| `fit_cube`: observed world-frame marker poses plus the body-frame layout to one cube pose, with the reject pass | `src/cube.rs` | the recorded zenoh capture of a moving cube |
-| `KalmanFilter::update`: constant-velocity position plus error-state orientation | `src/filter_kf.rs` | the same capture; velocity must come out finite and smooth |
+| `fit_cube`: observed world-frame marker poses plus the body-frame layout to one cube pose, with the reject pass | `src/cube.rs` | `tests/fit_cube.rs`: a known pose from all five faces, from one face, and with a gross outlier; a recorded capture once `docs/data` has one |
+| `KalmanFilter::update` and the `Cv1`, `Mekf` predict and update steps: constant-velocity position plus error-state orientation | `src/filter_kf.rs` | `tests/kalman.rs`: a static pose is held, constant velocity and constant angular rate are tracked with low lag |
 
 Markers pack 5 per cube: cube `k` owns ids `5k` to `5k+4`, faces TOP, BACK, RIGHT, FRONT, LEFT, cubes 0-based. The body frame is the cube centre, RDF: +X toward RIGHT, +Y toward BACK, +Z toward the blank BOTTOM. The TOP marker's X is body +X; its Y and Z are body -Y and -Z.
 

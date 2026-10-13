@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ips_track architecture</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chivo:wght@500;700;900&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one long scroll, sticky chip nav, each module = big picture first, then a file map, then in/out. */
+:root{
+  --bg:#f3f5f7; --paper:#ffffff; --fg:#141a22; --muted:#5a6676; --line:#c9d1da; --box:#ffffff;
+  --accent:#1d5fd1;            /* cube / pose, the thing the whole system is about */
+  --shm:#c9790a;               /* iceoryx2, shared memory on one computer */
+  --net:#0f8a7d;               /* zenoh, messages over the network */
+  --file:#7a5cc4;              /* files on disk */
+  --stub:#b43a3a;
+  --display:"Chivo",system-ui,sans-serif;
+  --body:"Source Sans 3",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0f1419; --paper:#171d25; --fg:#e8edf2; --muted:#9aa7b6; --line:#2f3a47; --box:#1d2531;
+  --accent:#6ea0ff; --shm:#f0a94a; --net:#3fc7b7; --file:#b39cf0; --stub:#f08080; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0f1419; --paper:#171d25; --fg:#e8edf2; --muted:#9aa7b6; --line:#2f3a47; --box:#1d2531;
+  --accent:#6ea0ff; --shm:#f0a94a; --net:#3fc7b7; --file:#b39cf0; --stub:#f08080; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px;line-height:1.5;margin:0}
+.wrap{max-width:1040px;margin:0 auto;padding-inline:16px;padding-block:0 64px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
+h1{font-size:clamp(2rem,5vw,3.2rem);font-weight:900;line-height:1.05;letter-spacing:-.01em}
+h2{font-size:clamp(1.6rem,3.5vw,2.3rem);font-weight:900;line-height:1.1}
+h3{font-size:1.05rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+p{margin:0;max-width:62ch}
+.lead{font-size:1.25rem;max-width:40ch}
+code,.mono{font-family:var(--mono);font-size:.88em}
+
+header.hero{padding-block:48px 24px;display:grid;gap:14px}
+.legend{display:flex;flex-wrap:wrap;gap:10px 22px;font-size:.95rem;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:8px}
+.sw{width:26px;height:0;border-top:3px solid}
+.sw.shm{border-color:var(--shm)} .sw.net{border-color:var(--net)} .sw.file{border-color:var(--file);border-top-style:dashed} .sw.acc{border-color:var(--accent)}
+
+nav.chips{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--line)}
+nav.chips a{flex:none;font-family:var(--display);font-weight:700;font-size:.9rem;text-decoration:none;color:var(--fg);border:1.5px solid var(--line);border-radius:999px;padding:6px 14px;background:var(--paper)}
+nav.chips a:hover,nav.chips a:focus-visible{border-color:var(--accent);outline:none}
+
+section.mod{padding-block:48px 8px;display:grid;gap:22px;scroll-margin-top:70px;border-top:1px solid var(--line)}
+section.mod:first-of-type{border-top:0}
+.modhead{display:grid;gap:8px}
+.eyebrow{font-family:var(--mono);font-size:.85rem;color:var(--muted)}
+.count{display:inline-block;font-family:var(--display);font-weight:700;font-size:.8rem;border-radius:6px;padding:2px 8px;background:var(--box);border:1px solid var(--line);margin-left:8px;vertical-align:middle}
+
+figure{margin:0;display:grid;gap:10px}
+.fig{overflow-x:auto;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px}
+.fig svg{display:block;width:100%;height:auto;min-width:640px;max-width:100%;color:var(--fg);font-family:var(--body);font-size:13px}
+figcaption{color:var(--muted);font-size:.95rem;max-width:70ch}
+svg .n{fill:var(--box);stroke:currentColor;stroke-width:1.5}
+svg .n.acc{stroke:var(--accent);stroke-width:2.5}
+svg .n.ghost{fill:none;stroke-dasharray:4 4;opacity:.7}
+svg .t{fill:currentColor} svg .tb{fill:currentColor;font-family:var(--display);font-weight:700;font-size:14px}
+svg .tm{fill:currentColor;font-family:var(--mono);font-size:11px}
+svg .ts{fill:var(--muted);font-size:11px}
+svg .a{fill:none;stroke:currentColor;stroke-width:1.6}
+svg .a.shm{stroke:var(--shm);stroke-width:2.2} svg .a.net{stroke:var(--net);stroke-width:2.2} svg .a.file{stroke:var(--file);stroke-dasharray:6 4;stroke-width:2} svg .a.acc{stroke:var(--accent);stroke-width:2.2}
+svg .lshm{fill:var(--shm)} svg .lnet{fill:var(--net)} svg .lfile{fill:var(--file)} svg .lacc{fill:var(--accent)}
+svg .doc{fill:var(--box);stroke:var(--file);stroke-width:1.6;stroke-dasharray:5 3}
+svg .cube{fill:var(--accent);opacity:.9}
+svg .mk{fill:var(--fg)} svg .mkbg{fill:var(--paper);stroke:currentColor;stroke-width:1.2}
+
+.files{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.f{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:4px;min-width:0}
+.f b{font-family:var(--mono);font-weight:600;font-size:.9rem;word-break:break-all}
+.f span{font-size:.95rem;color:var(--fg)}
+.f i{font-style:normal;font-size:.75rem;font-family:var(--display);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.f i.gen{color:var(--muted)} .f i.stub{color:var(--stub)} .f i.test{color:var(--net)}
+.f.main{border-color:var(--accent);border-width:2px}
+
+.io{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:640px){.io{grid-template-columns:1fr}}
+.io div{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+.io ul{margin:6px 0 0;padding-left:0;list-style:none;display:grid;gap:6px}
+.io li{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:baseline;font-size:.95rem}
+.tag{font-family:var(--display);font-weight:700;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;border-radius:5px;padding:1px 6px;border:1.5px solid;white-space:nowrap}
+.tag.shm{color:var(--shm);border-color:var(--shm)} .tag.net{color:var(--net);border-color:var(--net)} .tag.file{color:var(--file);border-color:var(--file)} .tag.cfg{color:var(--muted);border-color:var(--line)} .tag.hw{color:var(--fg);border-color:var(--fg)}
+
+.notes{display:grid;gap:8px}
+.notes p{max-width:72ch;padding-left:14px;border-left:3px solid var(--line)}
+.gloss{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.gloss div{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.gloss b{font-family:var(--display)}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+</style>
+<style>
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{font-size:17px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">ws-ips &middot; ips_track &middot; a picture-first map of this folder's code</div>
+  <h1>ips_track</h1>
+  <div class="legend">
+    <span><i class="sw shm"></i>iceoryx2: shared memory, same computer, big images</span>
+    <span><i class="sw net"></i>zenoh: small messages over the network</span>
+    <span><i class="sw file"></i>files on disk (yaml)</span>
+    <span><i class="sw acc"></i>the cube pose, the thing we want</span>
+  </div>
+</header>
+<nav class="chips" aria-label="Sections">
+  <a href="#ips">Where it sits</a>
+  <a href="#track">This module</a>
+  <a href="#words">Words</a>
+</nav>
+<section class="mod" id="ips">
+  <div class="modhead">
+    <div class="eyebrow">ips &middot; the whole pipeline</div>
+    <h2>Where ips_track sits.</h2>
+    <p>Each box is its own Rust crate, its own process, its own tmux window. The highlighted box is this folder. A box only talks to the next box through a message, never through code.</p>
+  </div>
+  <figure>
+    <div class="fig">
+    <svg viewBox="0 0 1000 400" role="img" aria-label="Four cameras feed four publishers, which feed four detectors over shared memory. Detectors feed one tracker over zenoh. The tracker feeds the viewer, which streams to the rerun window. The one-shot calibrator also listens to the detectors and writes extrinsics files that the tracker reads at start.">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker>
+        <marker id="ah-shm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="lshm"/></marker>
+        <marker id="ah-net" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="lnet"/></marker>
+        <marker id="ah-file" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="lfile"/></marker>
+        <marker id="ah-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="lacc"/></marker>
+      </defs>
+      <!-- cameras -->
+      <rect x="20" y="70" width="140" height="90" rx="10" class="n"/>
+      <g class="mk"><circle cx="50" cy="100" r="9"/><circle cx="80" cy="100" r="9"/><circle cx="110" cy="100" r="9"/><circle cx="140" cy="100" r="9"/></g>
+      <g class="mkbg"><circle cx="50" cy="100" r="4"/><circle cx="80" cy="100" r="4"/><circle cx="110" cy="100" r="4"/><circle cx="140" cy="100" r="4"/></g>
+      <text x="90" y="135" class="tb" text-anchor="middle">4 cameras</text>
+      <text x="90" y="151" class="ts" text-anchor="middle">GigE, sb00 to sb03</text>
+      <!-- pub -->
+      <rect x="208" y="78" width="150" height="90" rx="10" class="n ghost"/>
+      <rect x="200" y="70" width="150" height="90" rx="10" class="n"/>
+      <text x="275" y="105" class="tb" text-anchor="middle">ips_cam_gcam_pub</text>
+      <text x="275" y="124" class="t" text-anchor="middle">grab a picture</text>
+      <text x="275" y="146" class="ts" text-anchor="middle">x4, one per camera</text>
+      <!-- detect -->
+      <rect x="408" y="78" width="150" height="90" rx="10" class="n ghost"/>
+      <rect x="400" y="70" width="150" height="90" rx="10" class="n"/>
+      <text x="475" y="105" class="tb" text-anchor="middle">ips_detect</text>
+      <text x="475" y="124" class="t" text-anchor="middle">find the markers</text>
+      <text x="475" y="146" class="ts" text-anchor="middle">x4, one per camera</text>
+      <!-- track -->
+      <rect x="600" y="70" width="150" height="90" rx="10" class="n acc"/>
+      <text x="675" y="105" class="tb" text-anchor="middle">ips_track</text>
+      <text x="675" y="124" class="t" text-anchor="middle">markers to cube pose</text>
+      <text x="675" y="146" class="ts" text-anchor="middle">x1, merges all four</text>
+      <!-- viz -->
+      <rect x="800" y="70" width="150" height="90" rx="10" class="n"/>
+      <text x="875" y="105" class="tb" text-anchor="middle">ips_viz</text>
+      <text x="875" y="124" class="t" text-anchor="middle">draw it</text>
+      <text x="875" y="146" class="ts" text-anchor="middle">x1</text>
+      <!-- rerun -->
+      <rect x="800" y="290" width="150" height="70" rx="10" class="n ghost"/>
+      <text x="875" y="320" class="tb" text-anchor="middle">rerun window</text>
+      <text x="875" y="340" class="ts" text-anchor="middle">separate app</text>
+      <!-- calib -->
+      <rect x="400" y="290" width="150" height="70" rx="10" class="n"/>
+      <text x="475" y="320" class="tb" text-anchor="middle">ips_calib</text>
+      <text x="475" y="340" class="ts" text-anchor="middle">run once, then exits</text>
+      <!-- yaml -->
+      <path d="M600 290h120l30 18v52H600z" class="doc"/>
+      <text x="675" y="322" class="tm" text-anchor="middle">calibration/extrinsics/</text>
+      <text x="675" y="340" class="tm" text-anchor="middle">sbNN_full.yaml</text>
+      <!-- arrows -->
+      <line x1="160" y1="115" x2="198" y2="115" class="a" marker-end="url(#ah)"/>
+      <text x="180" y="105" class="ts" text-anchor="middle">cable</text>
+      <line x1="350" y1="115" x2="398" y2="115" class="a shm" marker-end="url(#ah-shm)"/>
+      <text x="374" y="60" class="ts" text-anchor="middle">image</text>
+      <text x="374" y="48" class="ts" text-anchor="middle">1280x1024 mono</text>
+      <line x1="550" y1="115" x2="598" y2="115" class="a net" marker-end="url(#ah-net)"/>
+      <text x="574" y="60" class="ts" text-anchor="middle">markers</text>
+      <text x="574" y="48" class="ts" text-anchor="middle">MarkerDetections</text>
+      <line x1="750" y1="115" x2="798" y2="115" class="a acc" marker-end="url(#ah-acc)"/>
+      <text x="774" y="60" class="ts" text-anchor="middle">cube_poses</text>
+      <text x="774" y="48" class="ts" text-anchor="middle">CubePoses, 90 Hz</text>
+      <line x1="875" y1="160" x2="875" y2="288" class="a" marker-end="url(#ah)"/>
+      <text x="885" y="230" class="ts">gRPC</text>
+      <path d="M475 160V288" class="a net" marker-end="url(#ah-net)"/>
+      <text x="485" y="218" class="ts">same markers,</text>
+      <text x="485" y="232" class="ts">board family</text>
+      <line x1="550" y1="325" x2="598" y2="325" class="a file" marker-end="url(#ah-file)"/>
+      <text x="574" y="378" class="ts" text-anchor="middle">writes</text>
+      <path d="M675 288V162" class="a file" marker-end="url(#ah-file)"/>
+      <text x="685" y="218" class="ts">read once</text>
+      <text x="685" y="232" class="ts">at start</text>
+    </svg>
+    </div>
+    <figcaption>Pictures stay on one computer and ride shared memory. Everything after the detector is small enough to cross the network.</figcaption>
+  </figure>
+  <div class="io">
+    <div><h3>Where things live</h3>
+      <ul>
+        <li><span class="tag cfg">yaml</span><span><code>workspace/flow.yaml</code> lists the four always-on modules and the four camera ids.</span></li>
+        <li><span class="tag cfg">yaml</span><span>Every module has its own <code>parameters/*.yaml</code>. It is the only place settings come from.</span></li>
+        <li><span class="tag file">proto</span><span><code>messages/custom/*.proto</code> defines the two messages. Each crate compiles them at build time.</span></li>
+        <li><span class="tag cfg">gen</span><span><code>swarmbotix_io/</code> inside each module is generated by <code>sb</code>. Never edit it.</span></li>
+      </ul>
+    </div>
+    <div><h3>One run, in order</h3>
+      <ul>
+        <li><span class="tag hw">1</span><span><code>sb up</code> starts cameras, detectors, tracker, viewer.</span></li>
+        <li><span class="tag hw">2</span><span>Once per camera placement: detectors on AprilTag, run <code>ips_calib</code>, restart tracker.</span></li>
+        <li><span class="tag hw">3</span><span>Detectors back on ArUco. Open <code>rerun</code> to watch.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+<section class="mod" id="track">
+  <div class="modhead">
+    <div class="eyebrow">ips_track &middot; 8 source files &middot; ~2100 lines</div>
+    <h2>Many markers, many cameras, one cube.<span class="count">x1, 90 Hz</span></h2>
+    <p>Each cube wears five markers. Every marker any camera sees becomes a point in the room. The tracker slides the cube's known shape onto those points with one least-squares fit, smooths the result, and ships it.</p>
+  </div>
+  <figure>
+    <div class="fig">
+    <svg viewBox="0 0 1000 420" role="img" aria-label="Four marker streams are drained into a latest-frame-per-camera table. Stale cameras are skipped. Each marker is lifted from camera frame to world frame using that camera's extrinsics, grouped by cube id, fitted into one rigid pose with Kabsch, smoothed by the chosen filter, placed in a liveness roster, and published as CubePoses at a fixed 90 hertz tick.">
+      <!-- streams -->
+      <rect x="20" y="40" width="130" height="30" rx="6" class="n ghost"/><text x="85" y="60" class="tm" text-anchor="middle">ips_detect-sb00</text>
+      <rect x="20" y="78" width="130" height="30" rx="6" class="n ghost"/><text x="85" y="98" class="tm" text-anchor="middle">ips_detect-sb01</text>
+      <rect x="20" y="116" width="130" height="30" rx="6" class="n ghost"/><text x="85" y="136" class="tm" text-anchor="middle">ips_detect-sb02</text>
+      <rect x="20" y="154" width="130" height="30" rx="6" class="n ghost"/><text x="85" y="174" class="tm" text-anchor="middle">ips_detect-sb03</text>
+      <!-- pending -->
+      <rect x="200" y="40" width="160" height="144" rx="10" class="n"/>
+      <text x="280" y="66" class="tb" text-anchor="middle">latest per camera</text>
+      <text x="280" y="88" class="t" text-anchor="middle">newer frame replaces</text>
+      <text x="280" y="106" class="t" text-anchor="middle">older one</text>
+      <text x="280" y="130" class="t" text-anchor="middle">older than 200 ms?</text>
+      <text x="280" y="148" class="t" text-anchor="middle">skip that camera</text>
+      <text x="280" y="172" class="tm" text-anchor="middle">main.rs</text>
+      <!-- lift -->
+      <rect x="410" y="40" width="160" height="144" rx="10" class="n"/>
+      <text x="490" y="66" class="tb" text-anchor="middle">lift to world</text>
+      <text x="490" y="88" class="t" text-anchor="middle">camera frame</text>
+      <text x="490" y="106" class="t" text-anchor="middle">x camera's R, t</text>
+      <text x="490" y="124" class="t" text-anchor="middle">= room frame</text>
+      <text x="490" y="172" class="tm" text-anchor="middle">cube.rs</text>
+      <path d="M430 250h90l30 18v42H430z" class="doc"/>
+      <text x="490" y="280" class="tm" text-anchor="middle">sbNN_full.yaml</text>
+      <text x="490" y="298" class="ts" text-anchor="middle">from ips_calib</text>
+      <path d="M490 248V186" class="a file" marker-end="url(#ah-file)"/>
+      <!-- group+fit -->
+      <rect x="620" y="40" width="160" height="144" rx="10" class="n acc"/>
+      <text x="700" y="66" class="tb" text-anchor="middle">fit one cube</text>
+      <text x="700" y="88" class="t" text-anchor="middle">group by id / 5</text>
+      <text x="700" y="106" class="t" text-anchor="middle">4 points per marker</text>
+      <text x="700" y="124" class="t" text-anchor="middle">Kabsch again</text>
+      <text x="700" y="142" class="t" text-anchor="middle">gives R, t per cube</text>
+      <text x="700" y="172" class="tm" text-anchor="middle">fit_cube</text>
+      <!-- filter -->
+      <rect x="830" y="40" width="150" height="144" rx="10" class="n"/>
+      <text x="905" y="66" class="tb" text-anchor="middle">smooth</text>
+      <text x="905" y="90" class="t" text-anchor="middle">pick one in yaml:</text>
+      <text x="905" y="110" class="tm" text-anchor="middle">lp</text>
+      <text x="905" y="126" class="tm" text-anchor="middle">oneeuro</text>
+      <text x="905" y="142" class="tm" text-anchor="middle">kf (adds velocity)</text>
+      <text x="905" y="172" class="tm" text-anchor="middle">filter*.rs</text>
+      <!-- roster + publish -->
+      <rect x="620" y="250" width="160" height="100" rx="10" class="n"/>
+      <text x="700" y="276" class="tb" text-anchor="middle">roster</text>
+      <text x="700" y="298" class="t" text-anchor="middle">every cube ever seen</text>
+      <text x="700" y="316" class="t" text-anchor="middle">seen in last 2 s: alive</text>
+      <text x="700" y="334" class="t" text-anchor="middle">else alive = false</text>
+      <rect x="830" y="250" width="150" height="100" rx="10" class="n"/>
+      <text x="905" y="276" class="tb" text-anchor="middle">publish</text>
+      <text x="905" y="298" class="t" text-anchor="middle">CubePoses</text>
+      <text x="905" y="316" class="t" text-anchor="middle">fixed tick, 90 Hz</text>
+      <text x="905" y="334" class="t" text-anchor="middle">even when empty</text>
+      <!-- service -->
+      <rect x="200" y="250" width="160" height="100" rx="10" class="n ghost"/>
+      <text x="280" y="276" class="tb" text-anchor="middle">side service</text>
+      <text x="280" y="298" class="t" text-anchor="middle">ask: cam_param/sbNN</text>
+      <text x="280" y="316" class="t" text-anchor="middle">get: that yaml as JSON</text>
+      <text x="280" y="338" class="tm" text-anchor="middle">cam_param.rs</text>
+      <!-- arrows -->
+      <g class="a net"><line x1="150" y1="55" x2="198" y2="80"/><line x1="150" y1="93" x2="198" y2="100"/><line x1="150" y1="131" x2="198" y2="120"/><line x1="150" y1="169" x2="198" y2="140"/></g>
+      <text x="174" y="30" class="ts" text-anchor="middle">zenoh, $* wildcard</text>
+      <line x1="360" y1="112" x2="408" y2="112" class="a" marker-end="url(#ah)"/>
+      <line x1="570" y1="112" x2="618" y2="112" class="a" marker-end="url(#ah)"/>
+      <line x1="780" y1="112" x2="828" y2="112" class="a" marker-end="url(#ah)"/>
+      <path d="M905 184V248" class="a acc" marker-end="url(#ah-acc)"/>
+      <line x1="828" y1="300" x2="782" y2="300" class="a" marker-start="url(#ah)"/>
+      <line x1="980" y1="300" x2="1000" y2="300" class="a acc"/>
+      <text x="990" y="325" class="ts" text-anchor="end">to ips_viz, to the network</text>
+      <path d="M700 350V395H280V352" class="a" marker-end="url(#ah)"/>
+      <text x="490" y="410" class="ts" text-anchor="middle">a tick never waits for cameras. If one ran long, re-phase from now instead of bursting.</text>
+    </svg>
+    </div>
+    <figcaption>The same fit used for calibration is used again here. Calibration matched a board to the room; tracking matches a cube's known shape to its seen markers.</figcaption>
+  </figure>
+  <figure>
+    <div class="fig">
+    <svg viewBox="0 0 1000 250" role="img" aria-label="A cube unfolded as a cross. The top face holds marker id 5k, the back 5k+1, the right 5k+2, the front 5k+3, the left 5k+4, and the bottom is blank. Cube number is id divided by 5, face is the remainder.">
+      <g transform="translate(60 20)">
+        <rect x="70" y="70" width="70" height="70" class="n acc"/><text x="105" y="100" class="tb" text-anchor="middle">TOP</text><text x="105" y="120" class="tm" text-anchor="middle">5k</text>
+        <rect x="70" y="0" width="70" height="70" class="n"/><text x="105" y="30" class="tb" text-anchor="middle">BACK</text><text x="105" y="50" class="tm" text-anchor="middle">5k+1</text>
+        <rect x="140" y="70" width="70" height="70" class="n"/><text x="175" y="100" class="tb" text-anchor="middle">RIGHT</text><text x="175" y="120" class="tm" text-anchor="middle">5k+2</text>
+        <rect x="70" y="140" width="70" height="70" class="n"/><text x="105" y="170" class="tb" text-anchor="middle">FRONT</text><text x="105" y="190" class="tm" text-anchor="middle">5k+3</text>
+        <rect x="0" y="70" width="70" height="70" class="n"/><text x="35" y="100" class="tb" text-anchor="middle">LEFT</text><text x="35" y="120" class="tm" text-anchor="middle">5k+4</text>
+        <rect x="210" y="70" width="70" height="70" class="n ghost"/><text x="245" y="100" class="ts" text-anchor="middle">BOTTOM</text><text x="245" y="120" class="ts" text-anchor="middle">blank</text>
+      </g>
+      <g transform="translate(420 40)">
+        <text x="0" y="20" class="tb">one cube = five markers</text>
+        <text x="0" y="52" class="t">cube number k = id / 5</text>
+        <text x="0" y="76" class="t">face = id % 5</text>
+        <text x="0" y="112" class="t">cube 0 wears ids 0..4, cube 1 wears 5..9, and so on</text>
+        <text x="0" y="148" class="t">body frame sits at the cube centre:</text>
+        <text x="0" y="170" class="t">+X toward RIGHT, +Y toward BACK, +Z toward the blank BOTTOM</text>
+      </g>
+    </svg>
+    </div>
+    <figcaption>Because the tracker knows where each face sits on the cube, a single visible marker is already enough for a pose. More markers and more cameras make it steadier.</figcaption>
+  </figure>
+  <figure>
+    <div class="fig">
+    <svg viewBox="0 0 1000 470" role="img" aria-label="Three panels. Left: the known cube shape with five marker spots in the body frame. Middle: the markers actually seen, lifted into the room by each camera, each contributing a centre and three axis tips. Right: the cube shape turned and slid onto the seen points by one least-squares fit, with the leftover gaps drawn as dashed lines. Below: the formula and the optional reject pass.">
+      <!-- panel 1: known shape -->
+      <rect x="20" y="20" width="300" height="300" rx="10" class="n ghost"/>
+      <text x="170" y="48" class="tb" text-anchor="middle">1. Known: the cube's shape</text>
+      <g transform="translate(110 100)">
+        <rect x="0" y="0" width="120" height="120" class="n"/>
+        <rect x="52" y="52" width="16" height="16" class="cube"/>
+        <rect x="52" y="-8" width="16" height="16" class="mk"/>
+        <rect x="112" y="52" width="16" height="16" class="mk"/>
+        <rect x="52" y="112" width="16" height="16" class="mk"/>
+        <rect x="-8" y="52" width="16" height="16" class="mk"/>
+        <text x="60" y="44" class="ts" text-anchor="middle">top</text>
+        <text x="60" y="-14" class="ts" text-anchor="middle">back</text>
+        <text x="140" y="64" class="ts">right</text>
+        <text x="60" y="144" class="ts" text-anchor="middle">front</text>
+        <text x="-14" y="64" class="ts" text-anchor="end">left</text>
+      </g>
+      <text x="170" y="270" class="t" text-anchor="middle">where each marker sits, from face_pose()</text>
+      <text x="170" y="292" class="tm" text-anchor="middle">p_i  (body frame, never changes)</text>
+      <!-- panel 2: seen -->
+      <rect x="350" y="20" width="300" height="300" rx="10" class="n ghost"/>
+      <text x="500" y="48" class="tb" text-anchor="middle">2. Seen: markers in the room</text>
+      <g transform="translate(400 90)">
+        <!-- marker glyph: square + 3 axis tips -->
+        <g transform="translate(70 70) rotate(12)"><rect x="-8" y="-8" width="16" height="16" class="mk"/><g class="a"><line x1="0" y1="0" x2="22" y2="0"/><line x1="0" y1="0" x2="0" y2="22"/><line x1="0" y1="0" x2="-12" y2="-12"/></g></g>
+        <g transform="translate(135 68) rotate(9)"><rect x="-8" y="-8" width="16" height="16" class="mk"/><g class="a"><line x1="0" y1="0" x2="22" y2="0"/><line x1="0" y1="0" x2="0" y2="22"/><line x1="0" y1="0" x2="-12" y2="-12"/></g></g>
+        <g transform="translate(76 132) rotate(15)"><rect x="-8" y="-8" width="16" height="16" class="mk"/><g class="a"><line x1="0" y1="0" x2="22" y2="0"/><line x1="0" y1="0" x2="0" y2="22"/><line x1="0" y1="0" x2="-12" y2="-12"/></g></g>
+        <g transform="translate(66 74) rotate(14)"><rect x="-8" y="-8" width="16" height="16" class="n"/><g class="a"><line x1="0" y1="0" x2="22" y2="0"/><line x1="0" y1="0" x2="0" y2="22"/><line x1="0" y1="0" x2="-12" y2="-12"/></g></g>
+        <g transform="translate(18 78) rotate(10)"><rect x="-8" y="-8" width="16" height="16" class="n"/><g class="a"><line x1="0" y1="0" x2="22" y2="0"/><line x1="0" y1="0" x2="0" y2="22"/><line x1="0" y1="0" x2="-12" y2="-12"/></g></g>
+        <text x="100" y="190" class="ts" text-anchor="middle">filled: from sb00   hollow: from sb02</text>
+      </g>
+      <text x="500" y="270" class="t" text-anchor="middle">centre + 3 axis tips = 4 points per marker</text>
+      <text x="500" y="292" class="tm" text-anchor="middle">q_i  (world frame, lifted by that camera's R, t)</text>
+      <!-- panel 3: fit -->
+      <rect x="680" y="20" width="300" height="300" rx="10" class="n acc"/>
+      <text x="830" y="48" class="tb" text-anchor="middle">3. Fit: turn and slide the shape</text>
+      <g transform="translate(770 100)">
+        <g transform="rotate(12 60 60)">
+          <rect x="0" y="0" width="120" height="120" class="n ghost"/>
+          <rect x="52" y="52" width="16" height="16" class="cube"/>
+          <rect x="52" y="-8" width="16" height="16" class="n ghost"/>
+          <rect x="112" y="52" width="16" height="16" class="n ghost"/>
+          <rect x="52" y="112" width="16" height="16" class="n ghost"/>
+          <rect x="-8" y="52" width="16" height="16" class="n ghost"/>
+        </g>
+        <!-- observed markers near their template spots, with residual dashes -->
+        <rect x="56" y="48" width="12" height="12" class="mk"/><line x1="62" y1="54" x2="60" y2="60" class="a file"/>
+        <rect x="122" y="54" width="12" height="12" class="mk"/><line x1="128" y1="60" x2="131" y2="72" class="a file"/>
+        <rect x="46" y="118" width="12" height="12" class="mk"/><line x1="52" y1="124" x2="48" y2="131" class="a file"/>
+        <rect x="-4" y="36" width="12" height="12" class="n"/><line x1="2" y1="42" x2="-6" y2="48" class="a file"/>
+        <rect x="62" y="56" width="12" height="12" class="n"/><line x1="68" y1="62" x2="60" y2="60" class="a file"/>
+      </g>
+      <text x="830" y="270" class="t" text-anchor="middle">one R and t for the whole cube</text>
+      <text x="830" y="292" class="tm" text-anchor="middle">dashed = leftover gap, summed as residual_rms</text>
+      <!-- formula row -->
+      <rect x="20" y="340" width="960" height="110" rx="10" class="n"/>
+      <text x="40" y="368" class="tb">least squares, all markers at once</text>
+      <text x="40" y="392" class="tm">minimise   sum over i of  | R * p_i + t  -  q_i |^2        closed form: Kabsch via SVD, no iterations, det kept +1</text>
+      <text x="40" y="418" class="t">No per-marker poses are averaged. Every seen point pulls on the same answer. The same marker seen by two cameras pulls twice.</text>
+      <text x="40" y="440" class="t">With use_all: false, score each marker after the fit, drop the single worst one if it is over pos_tol or ang_tol, refit. Repeat while more than one marker is left.</text>
+    </svg>
+    </div>
+    <figcaption>The cube's shape is the template; the seen markers are the data. The fit finds the one rotation and shift that lay the template on the data with the smallest total squared gap. That is the cube pose.</figcaption>
+  </figure>
+  <h3>Files</h3>
+  <div class="files">
+    <div class="f main"><b>src/main.rs</b><span>Loads params and extrinsics, drains zenoh, runs the 90 Hz tick, builds the roster, publishes, prints stats.</span></div>
+    <div class="f"><b>src/cube.rs</b><i class="stub">workshop stub</i><span>Cube geometry, <code>lift_to_world</code>, and <code>fit_cube</code>: the least-squares fit of the cube shape to every seen marker, with an optional reject-the-worst-marker pass.</span></div>
+    <div class="f"><b>src/filter.rs</b><span>Picks the smoother at start: off, lp, oneeuro, kf. One call: <code>smooth()</code>.</span></div>
+    <div class="f"><b>src/filter_lp.rs</b><span>Simple blend: a bit of new, a lot of old. Slerp for rotation.</span></div>
+    <div class="f"><b>src/filter_one_euro.rs</b><span>Blend that loosens when things move fast, tightens when still.</span></div>
+    <div class="f"><b>src/filter_kf.rs</b><i class="stub">workshop stub</i><span>Kalman: position with velocity per axis, orientation as an error-state EKF. Resets after a 0.5 s gap.</span></div>
+    <div class="f"><b>src/cam_param.rs</b><span>The zenoh queryable that hands out each camera's yaml as JSON.</span></div>
+    <div class="f"><b>src/fps.rs</b><span>Sliding-window rate meter.</span></div>
+    <div class="f"><b>tests/</b><i class="test">test</i><span><code>lift_to_world</code>, <code>fit_cube</code>, <code>kalman</code>, all on made-up data.</span></div>
+  </div>
+  <div class="io">
+    <div><h3>Reads</h3><ul>
+      <li><span class="tag net">zenoh</span><span><code>.../ips_detect-$*/zenoh/markers</code></span></li>
+      <li><span class="tag cfg">yaml</span><span><code>parameters/tracker_params.yaml</code>: cube size, marker size, cube ids, cameras, rate, stale/alive windows, filter tuning</span></li>
+      <li><span class="tag file">yaml</span><span><code>calibration/extrinsics/sbNN_full.yaml</code>, only R and t</span></li>
+    </ul></div>
+    <div><h3>Writes</h3><ul>
+      <li><span class="tag net">zenoh</span><span><code>.../ips_track/zenoh/cube_poses</code> as <code>CubePoses</code></span></li>
+      <li><span class="tag net">query</span><span><code>.../ips_track/zenoh/service/cam_param/sbNN</code> answers with JSON</span></li>
+    </ul></div>
+  </div>
+  <div class="notes">
+    <p>The latest frame table is not cleared between ticks. A frame is refitted every tick until it goes stale, so the filters see repeats.</p>
+    <p>A cube with <code>alive = false</code> has no pose fields at all. Readers must check the flag before using the pose.</p>
+  </div>
+</section>
+<section class="mod" id="words">
+  <div class="modhead">
+    <div class="eyebrow">words that keep showing up</div>
+    <h2>Seven words, plain.</h2>
+  </div>
+  <div class="gloss">
+    <div><b>iceoryx2</b><br>A mailbox in shared memory. Two programs on the same computer pass a big picture by pointing at it instead of copying it.</div>
+    <div><b>zenoh</b><br>A post office for small messages. Programs publish to a named key; anyone subscribed to that key gets a copy, even over the network.</div>
+    <div><b>protobuf</b><br>The packing format for a message. The <code>.proto</code> file is the packing list; each crate generates Rust structs from it at build time.</div>
+    <div><b>intrinsics</b><br>The lens numbers of one camera: focal length, image centre, distortion. From Kalibr, in <code>camchain.yaml</code>.</div>
+    <div><b>extrinsics</b><br>Where a camera sits in the room and which way it points: a rotation R and a shift t. Made by <code>ips_calib</code>.</div>
+    <div><b>Kabsch fit</b><br>Given two lists of matching 3D points, find the one rotation and shift that lay one list on top of the other with the least error. Used twice: for cameras, then for cubes.</div>
+    <div><b>rerun</b><br>A 3D log viewer. Programs send it points, boxes, images and numbers over time; it draws them with a timeline.</div>
+  </div>
+</section>
+</div>
+</body>
+</html>

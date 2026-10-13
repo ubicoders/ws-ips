@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ips_viz architecture</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chivo:wght@500;700;900&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one long scroll, sticky chip nav, each module = big picture first, then a file map, then in/out. */
+:root{
+  --bg:#f3f5f7; --paper:#ffffff; --fg:#141a22; --muted:#5a6676; --line:#c9d1da; --box:#ffffff;
+  --accent:#1d5fd1;            /* cube / pose, the thing the whole system is about */
+  --shm:#c9790a;               /* iceoryx2, shared memory on one computer */
+  --net:#0f8a7d;               /* zenoh, messages over the network */
+  --file:#7a5cc4;              /* files on disk */
+  --stub:#b43a3a;
+  --display:"Chivo",system-ui,sans-serif;
+  --body:"Source Sans 3",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0f1419; --paper:#171d25; --fg:#e8edf2; --muted:#9aa7b6; --line:#2f3a47; --box:#1d2531;
+  --accent:#6ea0ff; --shm:#f0a94a; --net:#3fc7b7; --file:#b39cf0; --stub:#f08080; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0f1419; --paper:#171d25; --fg:#e8edf2; --muted:#9aa7b6; --line:#2f3a47; --box:#1d2531;
+  --accent:#6ea0ff; --shm:#f0a94a; --net:#3fc7b7; --file:#b39cf0; --stub:#f08080; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px;line-height:1.5;margin:0}
+.wrap{max-width:1040px;margin:0 auto;padding-inline:16px;padding-block:0 64px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
+h1{font-size:clamp(2rem,5vw,3.2rem);font-weight:900;line-height:1.05;letter-spacing:-.01em}
+h2{font-size:clamp(1.6rem,3.5vw,2.3rem);font-weight:900;line-height:1.1}
+h3{font-size:1.05rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+p{margin:0;max-width:62ch}
+.lead{font-size:1.25rem;max-width:40ch}
+code,.mono{font-family:var(--mono);font-size:.88em}
+
+header.hero{padding-block:48px 24px;display:grid;gap:14px}
+.legend{display:flex;flex-wrap:wrap;gap:10px 22px;font-size:.95rem;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:8px}
+.sw{width:26px;height:0;border-top:3px solid}
+.sw.shm{border-color:var(--shm)} .sw.net{border-color:var(--net)} .sw.file{border-color:var(--file);border-top-style:dashed} .sw.acc{border-color:var(--accent)}
+
+nav.chips{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--line)}
+nav.chips a{flex:none;font-family:var(--display);font-weight:700;font-size:.9rem;text-decoration:none;color:var(--fg);border:1.5px solid var(--line);border-radius:999px;padding:6px 14px;background:var(--paper)}
+nav.chips a:hover,nav.chips a:focus-visible{border-color:var(--accent);outline:none}
+
+section.mod{padding-block:48px 8px;display:grid;gap:22px;scroll-margin-top:70px;border-top:1px solid var(--line)}
+section.mod:first-of-type{border-top:0}
+.modhead{display:grid;gap:8px}
+.eyebrow{font-family:var(--mono);font-size:.85rem;color:var(--muted)}
+.count{display:inline-block;font-family:var(--display);font-weight:700;font-size:.8rem;border-radius:6px;padding:2px 8px;background:var(--box);border:1px solid var(--line);margin-left:8px;vertical-align:middle}
+
+figure{margin:0;display:grid;gap:10px}
+.fig{overflow-x:auto;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px}
+.fig svg{display:block;width:100%;height:auto;min-width:640px;max-width:100%;color:var(--fg);font-family:var(--body);font-size:13px}
+figcaption{color:var(--muted);font-size:.95rem;max-width:70ch}
+svg .n{fill:var(--box);stroke:currentColor;stroke-width:1.5}
+svg .n.acc{stroke:var(--accent);stroke-width:2.5}
+svg .n.ghost{fill:none;stroke-dasharray:4 4;opacity:.7}
+svg .t{fill:currentColor} svg .tb{fill:currentColor;font-family:var(--display);font-weight:700;font-size:14px}
+svg .tm{fill:currentColor;font-family:var(--mono);font-size:11px}
+svg .ts{fill:var(--muted);font-size:11px}
+svg .a{fill:none;stroke:currentColor;stroke-width:1.6}
+svg .a.shm{stroke:var(--shm);stroke-width:2.2} svg .a.net{stroke:var(--net);stroke-width:2.2} svg .a.file{stroke:var(--file);stroke-dasharray:6 4;stroke-width:2} svg .a.acc{stroke:var(--accent);stroke-width:2.2}
+svg .lshm{fill:var(--shm)} svg .lnet{fill:var(--net)} svg .lfile{fill:var(--file)} svg .lacc{fill:var(--accent)}
+svg .doc{fill:var(--box);stroke:var(--file);stroke-width:1.6;stroke-dasharray:5 3}
+svg .cube{fill:var(--accent);opacity:.9}
+svg .mk{fill:var(--fg)} svg .mkbg{fill:var(--paper);stroke:currentColor;stroke-width:1.2}
+
+.files{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.f{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:4px;min-width:0}
+.f b{font-family:var(--mono);font-weight:600;font-size:.9rem;word-break:break-all}
+.f span{font-size:.95rem;color:var(--fg)}
+.f i{font-style:normal;font-size:.75rem;font-family:var(--display);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.f i.gen{color:var(--muted)} .f i.stub{color:var(--stub)} .f i.test{color:var(--net)}
+.f.main{border-color:var(--accent);border-width:2px}
+
+.io{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:640px){.io{grid-template-columns:1fr}}
+.io div{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+.io ul{margin:6px 0 0;padding-left:0;list-style:none;display:grid;gap:6px}
+.io li{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:baseline;font-size:.95rem}
+.tag{font-family:var(--display);font-weight:700;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;border-radius:5px;padding:1px 6px;border:1.5px solid;white-space:nowrap}
+.tag.shm{color:var(--shm);border-color:var(--shm)} .tag.net{color:var(--net);border-color:var(--net)} .tag.file{color:var(--file);border-color:var(--file)} .tag.cfg{color:var(--muted);border-color:var(--line)} .tag.hw{color:var(--fg);border-color:var(--fg)}
+
+.notes{display:grid;gap:8px}
+.notes p{max-width:72ch;padding-left:14px;border-left:3px solid var(--line)}
+.gloss{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.gloss div{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.gloss b{font-family:var(--display)}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+</style>
+<style>
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{font-size:17px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">ws-ips &middot; ips_viz &middot; a picture-first map of this folder's code</div>
+  <h1>ips_viz</h1>
+  <div class="legend">
+    <span><i class="sw shm"></i>iceoryx2: shared memory, same computer, big images</span>
+    <span><i class="sw net"></i>zenoh: small messages over the network</span>
+    <span><i class="sw file"></i>files on disk (yaml)</span>
+    <span><i class="sw acc"></i>the cube pose, the thing we want</span>
+  </div>
+</header>
+<nav class="chips" aria-label="Sections">
+  <a href="#ips">Where it sits</a>
+  <a href="#viz">This module</a>
+  <a href="#words">Words</a>
+</nav>
+<section class="mod" id="ips">
+  <div class="modhead">
+    <div class="eyebrow">ips &middot; the whole pipeline</div>
+    <h2>Where ips_viz sits.</h2>
+    <p>Each box is its own Rust crate, its own process, its own tmux window. The highlighted box is this folder. A box only talks to the next box through a message, never through code.</p>
+  </div>
+  <figure>
+    <div class="fig">
+    <svg viewBox="0 0 1000 400" role="img" aria-label="Four cameras feed four publishers, which feed four detectors over shared memory. Detectors feed one tracker over zenoh. The tracker feeds the viewer, which streams to the rerun window. The one-shot calibrator also listens to the detectors and writes extrinsics files that the tracker reads at start.">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker>
+        <marker id="ah-shm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="lshm"/></marker>
+        <marker id="ah-net" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="lnet"/></marker>
+        <marker id="ah-file" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="lfile"/></marker>
+        <marker id="ah-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="lacc"/></marker>
+      </defs>
+      <!-- cameras -->
+      <rect x="20" y="70" width="140" height="90" rx="10" class="n"/>
+      <g class="mk"><circle cx="50" cy="100" r="9"/><circle cx="80" cy="100" r="9"/><circle cx="110" cy="100" r="9"/><circle cx="140" cy="100" r="9"/></g>
+      <g class="mkbg"><circle cx="50" cy="100" r="4"/><circle cx="80" cy="100" r="4"/><circle cx="110" cy="100" r="4"/><circle cx="140" cy="100" r="4"/></g>
+      <text x="90" y="135" class="tb" text-anchor="middle">4 cameras</text>
+      <text x="90" y="151" class="ts" text-anchor="middle">GigE, sb00 to sb03</text>
+      <!-- pub -->
+      <rect x="208" y="78" width="150" height="90" rx="10" class="n ghost"/>
+      <rect x="200" y="70" width="150" height="90" rx="10" class="n"/>
+      <text x="275" y="105" class="tb" text-anchor="middle">ips_cam_gcam_pub</text>
+      <text x="275" y="124" class="t" text-anchor="middle">grab a picture</text>
+      <text x="275" y="146" class="ts" text-anchor="middle">x4, one per camera</text>
+      <!-- detect -->
+      <rect x="408" y="78" width="150" height="90" rx="10" class="n ghost"/>
+      <rect x="400" y="70" width="150" height="90" rx="10" class="n"/>
+      <text x="475" y="105" class="tb" text-anchor="middle">ips_detect</text>
+      <text x="475" y="124" class="t" text-anchor="middle">find the markers</text>
+      <text x="475" y="146" class="ts" text-anchor="middle">x4, one per camera</text>
+      <!-- track -->
+      <rect x="600" y="70" width="150" height="90" rx="10" class="n"/>
+      <text x="675" y="105" class="tb" text-anchor="middle">ips_track</text>
+      <text x="675" y="124" class="t" text-anchor="middle">markers to cube pose</text>
+      <text x="675" y="146" class="ts" text-anchor="middle">x1, merges all four</text>
+      <!-- viz -->
+      <rect x="800" y="70" width="150" height="90" rx="10" class="n acc"/>
+      <text x="875" y="105" class="tb" text-anchor="middle">ips_viz</text>
+      <text x="875" y="124" class="t" text-anchor="middle">draw it</text>
+      <text x="875" y="146" class="ts" text-anchor="middle">x1</text>
+      <!-- rerun -->
+      <rect x="800" y="290" width="150" height="70" rx="10" class="n ghost"/>
+      <text x="875" y="320" class="tb" text-anchor="middle">rerun window</text>
+      <text x="875" y="340" class="ts" text-anchor="middle">separate app</text>
+      <!-- calib -->
+      <rect x="400" y="290" width="150" height="70" rx="10" class="n"/>
+      <text x="475" y="320" class="tb" text-anchor="middle">ips_calib</text>
+      <text x="475" y="340" class="ts" text-anchor="middle">run once, then exits</text>
+      <!-- yaml -->
+      <path d="M600 290h120l30 18v52H600z" class="doc"/>
+      <text x="675" y="322" class="tm" text-anchor="middle">calibration/extrinsics/</text>
+      <text x="675" y="340" class="tm" text-anchor="middle">sbNN_full.yaml</text>
+      <!-- arrows -->
+      <line x1="160" y1="115" x2="198" y2="115" class="a" marker-end="url(#ah)"/>
+      <text x="180" y="105" class="ts" text-anchor="middle">cable</text>
+      <line x1="350" y1="115" x2="398" y2="115" class="a shm" marker-end="url(#ah-shm)"/>
+      <text x="374" y="60" class="ts" text-anchor="middle">image</text>
+      <text x="374" y="48" class="ts" text-anchor="middle">1280x1024 mono</text>
+      <line x1="550" y1="115" x2="598" y2="115" class="a net" marker-end="url(#ah-net)"/>
+      <text x="574" y="60" class="ts" text-anchor="middle">markers</text>
+      <text x="574" y="48" class="ts" text-anchor="middle">MarkerDetections</text>
+      <line x1="750" y1="115" x2="798" y2="115" class="a acc" marker-end="url(#ah-acc)"/>
+      <text x="774" y="60" class="ts" text-anchor="middle">cube_poses</text>
+      <text x="774" y="48" class="ts" text-anchor="middle">CubePoses, 90 Hz</text>
+      <line x1="875" y1="160" x2="875" y2="288" class="a" marker-end="url(#ah)"/>
+      <text x="885" y="230" class="ts">gRPC</text>
+      <path d="M475 160V288" class="a net" marker-end="url(#ah-net)"/>
+      <text x="485" y="218" class="ts">same markers,</text>
+      <text x="485" y="232" class="ts">board family</text>
+      <line x1="550" y1="325" x2="598" y2="325" class="a file" marker-end="url(#ah-file)"/>
+      <text x="574" y="378" class="ts" text-anchor="middle">writes</text>
+      <path d="M675 288V162" class="a file" marker-end="url(#ah-file)"/>
+      <text x="685" y="218" class="ts">read once</text>
+      <text x="685" y="232" class="ts">at start</text>
+    </svg>
+    </div>
+    <figcaption>Pictures stay on one computer and ride shared memory. Everything after the detector is small enough to cross the network.</figcaption>
+  </figure>
+  <div class="io">
+    <div><h3>Where things live</h3>
+      <ul>
+        <li><span class="tag cfg">yaml</span><span><code>workspace/flow.yaml</code> lists the four always-on modules and the four camera ids.</span></li>
+        <li><span class="tag cfg">yaml</span><span>Every module has its own <code>parameters/*.yaml</code>. It is the only place settings come from.</span></li>
+        <li><span class="tag file">proto</span><span><code>messages/custom/*.proto</code> defines the two messages. Each crate compiles them at build time.</span></li>
+        <li><span class="tag cfg">gen</span><span><code>swarmbotix_io/</code> inside each module is generated by <code>sb</code>. Never edit it.</span></li>
+      </ul>
+    </div>
+    <div><h3>One run, in order</h3>
+      <ul>
+        <li><span class="tag hw">1</span><span><code>sb up</code> starts cameras, detectors, tracker, viewer.</span></li>
+        <li><span class="tag hw">2</span><span>Once per camera placement: detectors on AprilTag, run <code>ips_calib</code>, restart tracker.</span></li>
+        <li><span class="tag hw">3</span><span>Detectors back on ArUco. Open <code>rerun</code> to watch.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+<section class="mod" id="viz">
+  <div class="modhead">
+    <div class="eyebrow">ips_viz &middot; 2 source files &middot; ~1000 lines</div>
+    <h2>Draw the room so a human can check it.<span class="count">x1</span></h2>
+    <p>No window of its own. It turns messages into drawing commands and streams them to a rerun viewer running next door.</p>
+  </div>
+  <figure>
+    <div class="fig">
+    <svg viewBox="0 0 1000 330" role="img" aria-label="Three inputs: cube poses over zenoh every frame, camera extrinsics fetched once from the tracker's query service, and optional debug images over shared memory. The Visualizer converts them into rerun log calls sent over gRPC to the rerun viewer, which shows a 3D world with camera dots and cube boxes, plots, and a 2 by 2 image grid.">
+      <!-- inputs -->
+      <rect x="20" y="30" width="200" height="70" rx="10" class="n"/>
+      <text x="120" y="56" class="tb" text-anchor="middle">cube_poses</text>
+      <text x="120" y="78" class="ts" text-anchor="middle">every frame, newest only</text>
+      <rect x="20" y="130" width="200" height="70" rx="10" class="n"/>
+      <text x="120" y="156" class="tb" text-anchor="middle">cam_param/sbNN</text>
+      <text x="120" y="178" class="ts" text-anchor="middle">asked once at start, retried</text>
+      <rect x="20" y="230" width="200" height="70" rx="10" class="n ghost"/>
+      <text x="120" y="256" class="tb" text-anchor="middle">debug_image x4</text>
+      <text x="120" y="278" class="ts" text-anchor="middle">only if debug_show_images</text>
+      <!-- visualizer -->
+      <rect x="320" y="60" width="200" height="210" rx="10" class="n acc"/>
+      <text x="420" y="92" class="tb" text-anchor="middle">Visualizer</text>
+      <text x="420" y="118" class="t" text-anchor="middle">cubes: Boxes3D</text>
+      <text x="420" y="138" class="t" text-anchor="middle">cameras: dot + 3 axes</text>
+      <text x="420" y="158" class="t" text-anchor="middle">plots: pos, vel, angle</text>
+      <text x="420" y="178" class="t" text-anchor="middle">images: 2x2 grid</text>
+      <text x="420" y="210" class="t" text-anchor="middle">clears old boxes</text>
+      <text x="420" y="228" class="t" text-anchor="middle">each frame</text>
+      <text x="420" y="256" class="tm" text-anchor="middle">visualize.rs</text>
+      <!-- rerun -->
+      <rect x="620" y="60" width="360" height="210" rx="10" class="n ghost"/>
+      <text x="800" y="86" class="tb" text-anchor="middle">rerun viewer</text>
+      <!-- fake 3d panel -->
+      <rect x="640" y="100" width="200" height="150" rx="6" class="n"/>
+      <g class="a" opacity=".4"><line x1="650" y1="230" x2="830" y2="230"/><line x1="650" y1="200" x2="830" y2="200"/><line x1="650" y1="170" x2="830" y2="170"/><line x1="690" y1="110" x2="690" y2="240"/><line x1="740" y1="110" x2="740" y2="240"/><line x1="790" y1="110" x2="790" y2="240"/></g>
+      <g class="lshm"><circle cx="665" cy="120" r="5"/><circle cx="815" cy="120" r="5"/><circle cx="665" cy="240" r="5"/><circle cx="815" cy="240" r="5"/></g>
+      <rect x="715" y="160" width="26" height="26" class="cube" transform="rotate(15 728 173)"/>
+      <rect x="770" y="195" width="26" height="26" class="cube" transform="rotate(-20 783 208)"/>
+      <text x="740" y="262" class="ts" text-anchor="middle">world: 4 camera dots, cube boxes</text>
+      <rect x="860" y="100" width="100" height="40" rx="6" class="n"/><text x="910" y="124" class="ts" text-anchor="middle">plots</text>
+      <rect x="860" y="150" width="100" height="100" rx="6" class="n"/>
+      <g class="n ghost"><rect x="868" y="158" width="40" height="40"/><rect x="912" y="158" width="40" height="40"/><rect x="868" y="202" width="40" height="40"/><rect x="912" y="202" width="40" height="40"/></g>
+      <text x="910" y="262" class="ts" text-anchor="middle">images</text>
+      <!-- arrows -->
+      <line x1="220" y1="65" x2="318" y2="110" class="a acc" marker-end="url(#ah-acc)"/>
+      <text x="268" y="70" class="ts" text-anchor="middle">zenoh</text>
+      <line x1="220" y1="165" x2="318" y2="165" class="a net" marker-end="url(#ah-net)"/>
+      <text x="268" y="155" class="ts" text-anchor="middle">zenoh query</text>
+      <line x1="220" y1="265" x2="318" y2="220" class="a shm" marker-end="url(#ah-shm)"/>
+      <text x="268" y="260" class="ts" text-anchor="middle">iceoryx2</text>
+      <line x1="520" y1="165" x2="618" y2="165" class="a" marker-end="url(#ah)"/>
+      <text x="569" y="155" class="ts" text-anchor="middle">gRPC :9876</text>
+      <text x="500" y="310" class="ts" text-anchor="middle">one thread, one poll loop, 2 ms naps. The tracker never waits for the viewer.</text>
+    </svg>
+    </div>
+    <figcaption>The viewer reads the camera positions from the tracker's query service, not from disk, so it never needs the calibration folder.</figcaption>
+  </figure>
+  <h3>Files</h3>
+  <div class="files">
+    <div class="f main"><b>src/main.rs</b><span>Builds the wire keys, fetches extrinsics with retries, opens the subscribers, runs the single poll loop.</span></div>
+    <div class="f"><b>src/visualize.rs</b><span>Params, the cube box model, camera extrinsics from JSON, and every rerun call: blueprint, cameras, cubes, plots, images.</span></div>
+    <div class="f"><b>src/lib.rs</b> <b>build.rs</b><span>Glue plus protobuf generation.</span></div>
+    <div class="f"><b>swarmbotix_io/subscribers/</b><i class="gen">generated</i><span>cube_poses (zenoh) and debug_image (iceoryx2, zero copy).</span></div>
+    <div class="f"><b>tests/params.rs</b><i class="test">test</i><span>A sample cam_param reply parses. An error reply is rejected.</span></div>
+  </div>
+  <div class="io">
+    <div><h3>Reads</h3><ul>
+      <li><span class="tag net">zenoh</span><span><code>.../ips_track/zenoh/cube_poses</code></span></li>
+      <li><span class="tag net">query</span><span><code>.../ips_track/zenoh/service/cam_param/sbNN</code></span></li>
+      <li><span class="tag shm">iox2</span><span><code>.../ips_detect-sbNN/iox2/debug_image</code>, optional</span></li>
+      <li><span class="tag cfg">yaml</span><span><code>parameters/viz_params.yaml</code>: cube size, draw scale, cameras, rerun_hz, debug toggles</span></li>
+    </ul></div>
+    <div><h3>Writes</h3><ul>
+      <li><span class="tag hw">gRPC</span><span><code>rerun+http://127.0.0.1:9876/proxy</code>, a log stream</span></li>
+      <li><span class="tag cfg">stdout</span><span>a 10 Hz echo. No files.</span></li>
+    </ul></div>
+  </div>
+  <div class="notes">
+    <p>The rerun crate version must match the rerun app you installed. Start <code>rerun</code> first.</p>
+    <p>The viewer is set to Z-down so the ceiling cameras lie flat on the grid.</p>
+  </div>
+</section>
+<section class="mod" id="words">
+  <div class="modhead">
+    <div class="eyebrow">words that keep showing up</div>
+    <h2>Seven words, plain.</h2>
+  </div>
+  <div class="gloss">
+    <div><b>iceoryx2</b><br>A mailbox in shared memory. Two programs on the same computer pass a big picture by pointing at it instead of copying it.</div>
+    <div><b>zenoh</b><br>A post office for small messages. Programs publish to a named key; anyone subscribed to that key gets a copy, even over the network.</div>
+    <div><b>protobuf</b><br>The packing format for a message. The <code>.proto</code> file is the packing list; each crate generates Rust structs from it at build time.</div>
+    <div><b>intrinsics</b><br>The lens numbers of one camera: focal length, image centre, distortion. From Kalibr, in <code>camchain.yaml</code>.</div>
+    <div><b>extrinsics</b><br>Where a camera sits in the room and which way it points: a rotation R and a shift t. Made by <code>ips_calib</code>.</div>
+    <div><b>Kabsch fit</b><br>Given two lists of matching 3D points, find the one rotation and shift that lay one list on top of the other with the least error. Used twice: for cameras, then for cubes.</div>
+    <div><b>rerun</b><br>A 3D log viewer. Programs send it points, boxes, images and numbers over time; it draws them with a timeline.</div>
+  </div>
+</section>
+</div>
+</body>
+</html>

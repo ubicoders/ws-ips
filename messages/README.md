@@ -1,8 +1,8 @@
 # messages
 
-Source of the two payload messages the pipeline carries over zenoh. They are sb vault messages: the `.proto` files live here so every clone builds, and `workspace/setup.sh` copies them into the local sb message vault (`~/.swarmbotix/messages/ros2/message_definitions/custom/`) and compiles them there.
+Source of the two payload messages the pipeline carries over zenoh. The `.proto` files live here and are the single source: each Rust module's `build.rs` runs `prost-build` on `../messages/custom/*.proto` directly, so every clone builds before any sb command has run. Nothing is shared between modules beyond the `.proto` text.
 
-sb emits no Rust for protobuf messages. Each Rust module therefore has its own `build.rs` that runs `prost-build` on these two files out of the vault, the same way the original project does. Nothing is shared between modules beyond the `.proto` text.
+`workspace/setup.sh` also copies the two files into the local sb message vault (`~/.swarmbotix/messages/ros2/message_definitions/custom/`) and compiles them there. That copy is for the sb tooling only: `sb pub`/`sb sub` need it to know the type when generating `swarmbotix_io/`. (`sb topic listen` shows these frames as hex: they are plain protobuf without the sb header its decoder looks for.)
 
 | File | Message | Published by | Carried on |
 |---|---|---|---|
@@ -11,4 +11,4 @@ sb emits no Rust for protobuf messages. Each Rust module therefore has its own `
 
 The image messages (`ros2/sensor_msgs/Image1280x1024`, `Image1280x1024Color`) are standard vault messages that ship with sb; they are not kept here.
 
-Edit a message here, then run `workspace/setup.sh` again so the vault copy and the compiled bindings follow. Keep this folder flat: a `messages/<style>/message_definitions/` layout would make every `sb` command run inside the repository treat it as the vault.
+Edit a message here, rebuild the modules (cargo picks the change up through `rerun-if-changed`), and run `workspace/setup.sh` again so the vault copy follows. Keep this folder flat: a `messages/<style>/message_definitions/` layout would make every `sb` command run inside the repository treat it as the vault.

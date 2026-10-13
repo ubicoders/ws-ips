@@ -1,0 +1,33 @@
+[package]
+name = "ips_calib"
+version = "0.1.0"
+edition = "2021"
+description = "One-shot extrinsic calibration of the IPS cameras from the detectors' marker stream (Kabsch fit against the calib board)"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "ips_calib"
+path = "src/main.rs"
+
+[dependencies]
+# Fan-in subscriber on every detector's marker stream. Matches the host zenoh
+# 1.9.0; only the sync `Wait` API is used, so no async runtime is pulled in.
+zenoh = "1.9.0"
+
+# protobuf decoding of custom/MarkerDetections. sb emits no Rust from its proto
+# backend, so build.rs generates the `swarmbotix.custom` types with prost-build.
+prost = "0.14"
+
+# Kabsch fit (3x3 SVD) and the world-frame board model; serde for the
+# nested ips_calib.yaml and calib_params.yaml.
+nalgebra = "0.33"
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+
+[build-dependencies]
+# Generate Rust types from messages/custom/*.proto of this repository.
+# protoc-bin-vendored ships a protoc binary, so no system protoc is needed.
+prost-build = "0.14"
+protoc-bin-vendored = "3"

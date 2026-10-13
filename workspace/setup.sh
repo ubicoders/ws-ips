@@ -20,8 +20,10 @@ command -v sb >/dev/null || { echo "sb not found. Install the sb CLI first (docs
 sb config get device >/dev/null 2>&1 || { echo "no device name set. Run: sb config set device <name>" >&2; exit 1; }
 
 # sb switches to a vault found under the cwd; run every sb command from $HOME
-# so this repository's messages/ folder is never mistaken for one.
-sb() { (cd "$HOME" && command sb "$@"); }
+# so this repository's messages/ folder is never mistaken for one. SB_CWD
+# overrides that for ips_calib (below), which is not in flow.yaml: sb then finds
+# it as <cwd>/ips_calib/sb.dev.yml.
+sb() { (cd "${SB_CWD:-$HOME}" && command sb "$@"); }
 
 echo "-- submodules"
 git -C "$REPO" submodule update --init --recursive
@@ -46,8 +48,10 @@ for f in "$REPO"/messages/custom/*.proto; do
   cp "$f" "$VAULT/custom/"
   echo "   $(basename "$f")"
 done
-sb message compile ros2/custom/MarkerDetections
-sb message compile ros2/custom/CubePoses
+# Only the backends the pipeline uses. (sb 0.2.1 also failed on --fb for a
+# message that imports another; fixed in 0.2.2, and fb is not needed here.)
+sb message compile ros2/custom/MarkerDetections --iox2 --proto
+sb message compile ros2/custom/CubePoses --iox2 --proto
 
 echo "-- swarmbotix_io per module"
 # Re-render every entry of a module's sb.dev.yml. `sb pub edit` needs -m or -t,
@@ -70,8 +74,10 @@ render_module() {
 }
 for m in "${MODULES[@]}"; do
   echo "   $m"
-  render_module "$m"
+  # ips_calib is deliberately absent from flow.yaml (calibration is not part of
+  # `sb up`), so sb resolves it from the repository root instead.
+  if [[ $m == ips_calib ]]; then SB_CWD="$REPO" render_module "$m"; else render_module "$m"; fi
 done
 sb service init --module ips_track   # swarmbotix_io/service.rs for the cam_param queryable
 
-echo "-- done. Next: sb up   (then `sb attach`, or `tmux attach -t sb-$WS`)"
+echo '-- done. Next: sb up   (then sb attach, or tmux attach -t sb-'"$WS"')'

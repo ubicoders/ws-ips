@@ -30,7 +30,8 @@ src/writer.rs        sbNN_full.yaml
 tests/fit.rs
 parameters/calib_params.yaml
 sb.dev.yml.in        subscriber `markers`
-build.rs             prost on messages/custom/*.proto out of the sb vault
+src/lib.rs           crate root: the swarmbotix_io include, the prost types, the modules above
+build.rs             prost on ../messages/custom/*.proto
 ```
 
 Depends on zenoh 1.9, prost, nalgebra, serde_yaml.
@@ -41,7 +42,7 @@ Scaffold. The subscriber, the accumulation, and the yaml writer are in place. Yo
 
 | Stub | Where | Test |
 |---|---|---|
-| `fit_extrinsics`: paired world and camera-frame marker centres to `R`, `t` (Kabsch / Umeyama, SVD) | `src/fit.rs` | `tests/fit.rs`: synthetic pairs with known transform, then the recorded board detections |
+| `fit_extrinsics`: paired world and camera-frame marker centres to `R`, `t` (Kabsch / Umeyama, SVD) | `src/fit.rs` | `tests/fit.rs`: synthetic pairs with a known transform, a reflected set, too few points; the board model on `calibration/ips_calib.yaml` |
 | `reprojection_residual`: RMS of the fitted centres against the measured ones | `src/fit.rs` | same |
 
 A camera needs at least `min_markers` distinct board ids in view or it is skipped.
@@ -49,7 +50,8 @@ A camera needs at least `min_markers` distinct board ids in view or it is skippe
 ## Run
 
 ```bash
-sb run ips_calib            # one shot, exits when done
+bash ips_calib/runscript.bash   # one shot, exits when done; own tmux session ips_calib-dev
+                                # (not in workspace/flow.yaml, so `sb up` never starts it)
 cargo test                  # inside this folder; the acceptance check
 ```
 

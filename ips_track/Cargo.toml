@@ -1,0 +1,39 @@
+[package]
+name = "ips_track"
+version = "0.1.0"
+edition = "2021"
+description = "Fuse every camera's marker detections into rigid cube poses, publish them at a fixed rate, and serve each camera's K and R|t"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "ips_track"
+path = "src/main.rs"
+
+[dependencies]
+# Cross-device transport. Matches the host zenoh 1.9.0. The sb-generated
+# subscriber, publisher and service router use its sync `Wait` API, so no async
+# runtime is pulled in.
+zenoh = "1.9.0"
+
+# protobuf payloads (custom/MarkerDetections in, custom/CubePoses out). build.rs
+# generates the types from the repository's messages/ folder with prost-build.
+prost = "0.14"
+
+# Rigid fit (3x3 SVD), rotations and the Kalman filter.
+nalgebra = "0.33"
+
+# tracker_params.yaml and the sbNN_full.yaml extrinsics.
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+
+# The cam_param service (swarmbotix_io/service.rs) speaks JSON: each
+# sbNN_full.yaml is read into a serde_json::Value and returned with the 3x4 [R|t].
+serde_json = "1"
+
+[build-dependencies]
+# Generate the prost types from messages/custom/*.proto. protoc-bin-vendored
+# ships a protoc binary, so the build needs no system protoc on PATH.
+prost-build = "0.14"
+protoc-bin-vendored = "3"

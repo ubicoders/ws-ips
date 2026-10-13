@@ -1,4 +1,4 @@
-// custom/MarkerDetections — fiducial marker detections from ONE camera,
+// custom/MarkerDetections: fiducial marker detections from ONE camera,
 // published per frame over zenoh (protobuf). Poses are in the camera optical
 // frame: RDF = +x right, +y down, +z forward.
 syntax = "proto3";

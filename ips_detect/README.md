@@ -6,7 +6,7 @@ Subscribes to one camera's images, detects ArUco (or, for calibration, AprilTag)
 
 - `<device>/ws_ips/ips_cam_gcam_pub-sbNN/iox2/image` (iceoryx2).
 - `calibration/intrinsics/sbNN-camchain.yaml` (Kalibr).
-- `parameters/detector_params.yaml`: `cameras` (indices into cam_params.yaml, 0 -> sb00), `family` (aruco | april), `marker_size` (m), `debug`, `save`.
+- `parameters/detector_params.yaml`: `cameras` (indices into cam_params.yaml, 0 -> sb00), `family` (aruco | april), `marker_size` (m), `debug`, `save`, `save_frames`.
 
 ## Outputs
 
@@ -24,7 +24,8 @@ Subscribes to one camera's images, detects ArUco (or, for calibration, AprilTag)
 ## Layout
 
 ```
-src/main.rs          --id parsing, one thread per camera, the frame loop, encoding, publish
+src/main.rs          --id parsing, the frame loop, encoding, publish (all cameras in one process, one thread each, only without tmux)
+runscript.bash       no --id: opens one tmux window per camera running `--id sbNN`, then exits
 src/camera.rs        the iceoryx2 image subscription, wait-and-retry until the camera is up
 src/intrinsics.rs    camchain yaml to the OpenCV camera matrix and distortion
 src/markers.rs       dictionary selection, the detector call, pose_from_corners   <- stub
@@ -33,7 +34,8 @@ src/fps.rs           rate meter
 tests/pose_from_corners.rs
 parameters/detector_params.yaml
 sb.dev.yml.in        subscriber `image`, publishers `markers`, `debug_image`
-build.rs             prost on messages/custom/*.proto out of the sb vault
+src/lib.rs           crate root: the swarmbotix_io includes, the prost types, the modules above
+build.rs             prost on ../messages/custom/*.proto
 ```
 
 Depends on opencv (4.6 contrib `aruco`), iceoryx2 `=0.9.3`, zenoh 1.9, prost. Needs `LIBCLANG_PATH` to build; the run script sets it.
@@ -44,14 +46,14 @@ Scaffold. The subscriber, the detector call, the message encoding, and the publi
 
 | Stub | Where | Test |
 |---|---|---|
-| `pose_from_corners`: four image corners plus `K`, distortion, and the marker side to a pose in the camera frame | `src/markers.rs` | `tests/pose_from_corners.rs`: recorded frames of the calib board, known distances |
+| `pose_from_corners`: four image corners plus `K`, distortion, and the marker side to a pose in the camera frame | `src/markers.rs` | `tests/pose_from_corners.rs`: synthetic poses projected with the sb00 intrinsics, and a cross-check against OpenCV's own estimator; recorded frames once `docs/data` has them |
 
 Rule that bites: `marker_size` must match the printed tag. Cube ArUco 0.087 m, calib board 0.185 m, measured with the caliper. A wrong value scales every distance along the camera's view ray.
 
 ## Run
 
 ```bash
-sb run ips_detect              # every camera in detector_params.yaml, one thread each
+sb run ips_detect              # one tmux window and process per camera in detector_params.yaml (ips_detect-sbNN)
 sb run ips_detect --id sb00    # one camera
 sb stop ips_detect
 cargo test                     # inside this folder; the acceptance check

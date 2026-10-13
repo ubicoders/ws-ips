@@ -1,4 +1,4 @@
-// custom/CubePoses — fused rigid pose of each marker cube, published per frame
+// custom/CubePoses: fused rigid pose of each marker cube, published per frame
 // over zenoh (protobuf) by ips_track. Poses are in the WORLD frame (RDF, metres),
 // the same frame as the sbNN_full.yaml camera extrinsics.
 //
@@ -31,7 +31,7 @@ message Mat3 {
 // world-frame linear velocity, but only when the tracker runs the `kf` filter
 // (the other smoothers carry no velocity state and leave it unset).
 //
-// alive=false: not fused within the window — treat the cube as gone, do NOT use
+// alive=false: not fused within the window, treat the cube as gone, do NOT use
 // it. The pose fields (position/rotation/euler/orientation/velocity) are cleared
 // (unset); only cube_id, alive and last_seen_* are meaningful.
 message CubePose {

@@ -1,11 +1,23 @@
 #!/usr/bin/env bash
 # ips_cam_gcam_pub/runscript.bash
 # Invoked by `sb run ips_cam_gcam_pub [-- args]` / `sb up`, or directly from any cwd.
-# Every argument is forwarded to the binary.
-# No --id: every camera listed in parameters/cam_params.yaml, one thread each.
-# --id sbNN: that camera only.
+#
+#   --id sbNN     publish that one camera, in this window.
+#   (no --id)     open one tmux window per camera listed in parameters/cam_params.yaml,
+#                 named ips_cam_gcam_pub-sbNN, each running `--id sbNN` as its own
+#                 process, then exit. `sb stop ips_cam_gcam_pub` closes them
+#                 (stopscript.bash); `sb run ips_cam_gcam_pub` replaces them.
+#   SB_NO_TMUX=1  no tmux at all: one process, one thread per camera.
 set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+MODULE=ips_cam_gcam_pub
+
+# The --id value, if one was passed.
+ID=""; __prev=""
+for __arg in "$@"; do
+  if [[ "$__prev" == "--id" ]]; then ID="$__arg"; break; fi
+  __prev="$__arg"
+done
 
 # Standalone tmux wrap (same as the sb template): run directly, re-exec inside
 # a tmux session named ips_cam_gcam_pub[-<id>]-dev so the output survives an exit.
@@ -15,22 +27,38 @@ if [[ -z "${TMUX:-}" ]] && [[ "${SB_NO_TMUX:-0}" != "1" ]] && command -v tmux >/
   __sb_self="$PWD/$(basename "${BASH_SOURCE[0]}")"
   __sb_args=""
   for __arg in "$@"; do __sb_args="$__sb_args $(printf %q "$__arg")"; done
-  __sb_id_suffix=""; __sb_prev=""
-  for __arg in "$@"; do
-    if [[ "$__sb_prev" == "--id" ]]; then __sb_id_suffix="-$__arg"; break; fi
-    __sb_prev="$__arg"
-  done
-  exec tmux new -A -s "ips_cam_gcam_pub${__sb_id_suffix}-dev" \
+  exec tmux new -A -s "${MODULE}${ID:+-$ID}-dev" \
     "trap '' INT; (trap - INT; bash $(printf %q "${__sb_self}")${__sb_args}); ec=\$?; echo; echo \"[app exited \$ec - press any key to close]\"; read -n 1"
 fi
 
-# The vendor SDK discovers GigE cameras over raw sockets, so the binary needs
-# CAP_NET_RAW. cargo relinks drop file capabilities, so build first and set
-# them on the result when missing (asks for sudo once per rebuild).
-cargo build --release
-__bin="target/release/ips_cam_gcam_pub"
-if ! getcap "$__bin" 2>/dev/null | grep -q cap_net_raw; then
-  echo "setting cap_net_raw,cap_net_admin on $__bin (sudo)" >&2
-  sudo setcap cap_net_raw,cap_net_admin+ep "$__bin"
+# No privileges: GigE discovery works from a plain user process on this setup
+# (verified with the vendor SDK and no capability). If `gcam-mvsdk-rs list`
+# finds no camera, `gcam-mvsdk-rs doctor` names the host setting to fix.
+BIN="target/release/$MODULE"
+build() {
+  cargo build --release
+}
+
+# One camera, or no tmux: run the binary in this window.
+if [[ -n "$ID" ]] || [[ -z "${TMUX:-}" ]]; then
+  build
+  exec "$BIN" "$@"
 fi
-exec "$__bin" "$@"
+
+# Fan-out: one window per camera named in parameters/cam_params.yaml.
+mapfile -t IDS < <(grep -E '^[[:space:]]*cameras:' parameters/cam_params.yaml | sed 's/#.*//' | grep -oE 'sb[0-9]+')
+if (( ${#IDS[@]} == 0 )); then
+  echo "error: no cameras in parameters/cam_params.yaml" >&2
+  exit 1
+fi
+build   # once here, so the camera windows do not race for the cargo lock
+SESSION="$(tmux display-message -p '#S')"
+SELF="$PWD/$(basename "${BASH_SOURCE[0]}")"
+for id in "${IDS[@]}"; do
+  win="$MODULE-$id"
+  tmux kill-window -t "$SESSION:$win" 2>/dev/null || true
+  tmux new-window -d -t "$SESSION:" -n "$win" \
+    "trap '' INT; (trap - INT; bash $(printf %q "$SELF") --id $id); ec=\$?; echo; echo \"[$win exited \$ec - press any key to close]\"; read -n 1"
+done
+echo "$MODULE: ${#IDS[@]} camera window(s) in tmux session '$SESSION': ${IDS[*]/#/$MODULE-}"
+echo "stop all: sb stop $MODULE"

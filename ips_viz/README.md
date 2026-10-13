@@ -11,7 +11,7 @@ Subscribes to the cube poses from `ips_track`, fetches each camera's extrinsics 
 
 ## Outputs
 
-- A rerun log stream to `rerun+http://127.0.0.1:9876/proxy`. Start `rerun` (0.33) first; with no viewer up it buffers and reconnects.
+- A rerun log stream to `rerun+http://127.0.0.1:9876/proxy`. Start `rerun` (0.32) first; with no viewer up it buffers and reconnects.
 
 ## Wire keys
 
@@ -24,14 +24,15 @@ Subscribes to the cube poses from `ips_track`, fetches each camera's extrinsics 
 ## Layout
 
 ```
-src/main.rs         parameters, the cam_param fetch, the subscribe loop
-src/visualize.rs    the rerun blueprint, cameras, cubes, plots, debug images
+src/main.rs         the cam_param fetch, the subscribe loop
+src/visualize.rs    parameters, cube box and camera extrinsics, the rerun blueprint, cameras, cubes, plots, debug images
 parameters/viz_params.yaml
 sb.dev.yml.in       subscribers `cube_poses`, `debug_image`
-build.rs            prost on messages/custom/*.proto out of the sb vault
+src/lib.rs          crate root: the swarmbotix_io includes, the prost types, visualize
+build.rs            prost on ../messages/custom/*.proto
 ```
 
-Depends on zenoh 1.9, iceoryx2 `=0.9.3`, prost, nalgebra, rerun 0.33 (sdk only, no bundled viewer).
+Depends on zenoh 1.9, iceoryx2 `=0.9.3`, prost, nalgebra, rerun 0.32 (sdk only, no bundled viewer; the crate's minor version must match the installed `rerun` viewer).
 
 ## State at handout, and what you build
 

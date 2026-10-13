@@ -7,7 +7,7 @@ cube_viz_scale: 1          # draw the box this many times larger; pose unchanged
 # e.g. 0 queries .../ips_track/zenoh/service/cam_param/sb00 and draws world/cameras/sb00
 cameras: [0, 1, 2, 3]
 rerun_hz: 10               # rate at which debug images are forwarded to rerun
-debug_show_images: false   # 2x2 grid of per-camera debug images
+debug_show_images: true   # 2x2 grid of per-camera debug images
 debug_show_pos_xyz: true   # position X/Y/Z plot per cube
 debug_show_vel_xyz: true   # velocity plot per cube (filled only by the kf filter)
-debug_show_ang_xyz: false  # euler angle plot per cube
+debug_show_ang_xyz: true  # euler angle plot per cube
