@@ -15,7 +15,7 @@
 cameras: [0, 1, 2, 3]
 frames: 300             # marker frames to collect per camera before fitting
 timeout_s: 30           # headless mode only: give up waiting after this long
-min_markers: 3          # a camera that saw fewer distinct board ids is skipped
+min_markers: 30         # a camera that saw fewer distinct board ids is skipped
 ui: true                # true: the window (S collect, C calibrate, W write); false: headless one-shot
 rms_warn_m: 0.01        # window only: a residual above this shows amber
 

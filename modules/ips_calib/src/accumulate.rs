@@ -49,7 +49,7 @@ pub fn median_vec(v: &[Vector3<f64>]) -> Vector3<f64> {
 /// Something worth telling the operator, at most once per camera.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Notice {
-    /// A detector not in `calib_params.yaml` `cameras` is publishing.
+    /// A detector not in `ips_calib.yaml` `cameras` is publishing.
     Ignored { camera: String },
     /// A camera's detector runs another marker family than the board's.
     WrongFamily {
@@ -64,7 +64,7 @@ impl std::fmt::Display for Notice {
         match self {
             Notice::Ignored { camera } => write!(
                 f,
-                "  '{camera}': not in calib_params.yaml cameras, its markers are ignored"
+                "  '{camera}': not in ips_calib.yaml cameras, its markers are ignored"
             ),
             Notice::WrongFamily {
                 camera,

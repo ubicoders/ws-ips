@@ -57,7 +57,7 @@ while the default flow is active (`module ips_calib is not a node of flow defaul
 session `sb-ws_ips` belongs to the workspace, not to a flow, and `sb up` refuses a session that
 already exists, so switching to calibration is `sb down && sb up calib` (plain `sb up calib` when
 nothing is running). It builds and starts the cameras, the detectors and `ips_calib` together,
-and records `calib` as the active flow. With `ui: true` in its `calib_params.yaml`, the default,
+and records `calib` as the active flow. With `ui: true` in its `ips_calib.yaml`, the default,
 the calibrator opens an OpenCV window, `ips_calib`, with every camera's live image, and collects,
 fits and writes on keys (see `modules/ips_calib/README.md`). The window needs a display: the
 calibrator runs inside tmux and inherits `DISPLAY` from the terminal that ran `sb up`. Besides
@@ -83,7 +83,7 @@ and the camera it reads share the id.
 The four cameras are predefined, not discovered. The id list lives once per flow, in
 `sb.flow.yaml` and in `calib.flow.yaml`, and decides how many processes sb starts. The programs
 still read their own camera list from their parameters yaml (`cam_params`, `detector_params`,
-`calib_params`, `tracker_params`, `viz_params`), and the two must agree: an instance whose id the
+`ips_calib`, `tracker_params`, `viz_params`), and the two must agree: an instance whose id the
 parameters do not list stops at startup with an error. Adding a camera means adding it to both
 `instances:` lists in both flow files and to all five parameters files.
 

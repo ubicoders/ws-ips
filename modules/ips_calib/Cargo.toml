@@ -13,7 +13,7 @@ path = "src/main.rs"
 
 [features]
 # `ui`: the interactive window (OpenCV highgui). Off, the binary only runs the
-# headless one-shot (`ui: false` in calib_params.yaml), which lets the logic
+# headless one-shot (`ui: false` in ips_calib.yaml), which lets the logic
 # build and test on a machine without OpenCV. `sb up` builds the default set.
 default = ["ui"]
 ui = ["dep:opencv"]
@@ -28,7 +28,7 @@ zenoh = "1.9.0"
 prost = "0.14"
 
 # Kabsch fit (3x3 SVD) and the world-frame board model; serde for the
-# nested ips_calib.yaml and calib_params.yaml.
+# nested parameters/ips_calib.yaml.
 nalgebra = "0.33"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"

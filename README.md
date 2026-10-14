@@ -109,7 +109,7 @@ modules/ips_<name>/
 | Folder | At handout | Filled by |
 |---|---|---|
 | `drivers/` | full, git submodules, pinned | nobody, read only |
-| `messages/`, `sb.workspace.yaml`, `sb.flow.yaml`, `calib.flow.yaml`, `docs/`, `calibration/intrinsics/`, `calibration/ips_calib.yaml` | full | nobody |
+| `messages/`, `sb.workspace.yaml`, `sb.flow.yaml`, `calib.flow.yaml`, `docs/`, `calibration/intrinsics/` | full | nobody |
 | `modules/ips_cam_gcam_pub/` | full | nobody |
 | `modules/ips_detect/` | module, `pose_from_corners` stubbed | you, module 2 |
 | `modules/ips_calib/` | module, `fit_extrinsics` and `reprojection_residual` stubbed | you, module 2 |

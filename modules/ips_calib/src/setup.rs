@@ -17,9 +17,9 @@ use zenoh::pubsub::Subscriber;
 use zenoh::sample::Sample;
 use zenoh::Wait;
 
-/// `parameters/calib_params.yaml`.
+/// `parameters/ips_calib.yaml`: the run settings, then the board (`world_frame`,
+/// `board`, `placement`, flattened into the same top level).
 #[derive(Debug, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct Params {
     /// Camera indices, `0 -> sb00`.
     pub cameras: Vec<u32>,
@@ -35,7 +35,24 @@ pub struct Params {
     /// A residual above this is shown amber in the window, metres.
     #[serde(default = "default_rms_warn_m")]
     pub rms_warn_m: f64,
+    /// The board and its placement in the world frame.
+    #[serde(flatten)]
+    pub cfg: CalibConfig,
 }
+
+/// Every top-level key the file may hold. serde's `deny_unknown_fields` does not
+/// work with `flatten`, so a typo is caught by hand before parsing.
+const KNOWN_KEYS: &[&str] = &[
+    "cameras",
+    "frames",
+    "timeout_s",
+    "min_markers",
+    "ui",
+    "rms_warn_m",
+    "world_frame",
+    "board",
+    "placement",
+];
 
 fn default_ui() -> bool {
     true
@@ -49,8 +66,19 @@ impl Params {
     pub fn load(path: &Path) -> Result<Self, String> {
         let text = std::fs::read_to_string(path)
             .map_err(|e| format!("cannot read params '{}': {e}", path.display()))?;
-        let p: Params =
+        let doc: serde_yaml::Value =
             serde_yaml::from_str(&text).map_err(|e| format!("parse '{}': {e}", path.display()))?;
+        if let Some(map) = doc.as_mapping() {
+            for key in map.keys() {
+                if let Some(k) = key.as_str() {
+                    if !KNOWN_KEYS.contains(&k) {
+                        return Err(format!("'{}': unknown field `{k}`", path.display()));
+                    }
+                }
+            }
+        }
+        let p: Params =
+            serde_yaml::from_value(doc).map_err(|e| format!("parse '{}': {e}", path.display()))?;
         if p.cameras.is_empty() {
             return Err(format!("'{}': cameras is empty", path.display()));
         }
@@ -83,7 +111,6 @@ impl Params {
 pub struct Paths {
     pub repo: PathBuf,
     pub params: PathBuf,
-    pub board: PathBuf,
     pub intrinsics: PathBuf,
     pub extrinsics: PathBuf,
 }
@@ -98,8 +125,7 @@ impl Paths {
             .to_path_buf();
         let calib = repo.join("calibration");
         Self {
-            params: crate_dir.join("parameters/calib_params.yaml"),
-            board: calib.join("ips_calib.yaml"),
+            params: crate_dir.join("parameters/ips_calib.yaml"),
             intrinsics: calib.join("intrinsics"),
             extrinsics: calib.join("extrinsics"),
             repo,
@@ -114,17 +140,17 @@ pub struct Setup {
     pub cfg: CalibConfig,
     /// Each board marker id's centre in the world frame, metres.
     pub world: HashMap<i32, Vector3<f64>>,
-    /// The cameras with intrinsics, in `calib_params.yaml` order: `(instance, camchain)`.
+    /// The cameras with intrinsics, in `ips_calib.yaml` order: `(instance, camchain)`.
     pub cams: Vec<(String, Camchain)>,
 }
 
 impl Setup {
-    /// Load the parameters, the board, and every camera's camchain, printing the
-    /// startup banner. A camera without a camchain is skipped and not waited for.
+    /// Load the parameters (run settings and board) and every camera's camchain,
+    /// printing the startup banner. A camera without a camchain is skipped and not waited for.
     pub fn load() -> Result<Self, String> {
         let paths = Paths::resolve();
         let params = Params::load(&paths.params)?;
-        let cfg = CalibConfig::load(&paths.board)?;
+        let cfg = params.cfg.clone();
         let world = board::build_world_model(&cfg)?;
 
         let mut targets: Vec<String> = Vec::new();
@@ -157,7 +183,6 @@ impl Setup {
             params.ui
         );
         println!("params file:  {}", paths.params.display());
-        println!("board file:   {}", paths.board.display());
         println!(
             "output files: {}",
             writer::full_yaml_path(&paths.extrinsics, "sbNN").display()

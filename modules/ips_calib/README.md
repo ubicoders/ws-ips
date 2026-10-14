@@ -1,13 +1,13 @@
 # ips_calib
 
-Subscribes to every detector's marker stream while the cameras look at the IPS calib board, accumulates the marker centres per camera, and solves each camera's pose in the world frame by a rigid least-squares (Kabsch) fit against the board geometry in `calibration/ips_calib.yaml`. Writes one `sbNN_full.yaml` per camera. Run once per camera placement, not part of the live pipeline. By default it runs in a window that shows every camera's live image, and the operator starts the collection, the fit and the write by key; `ui: false` runs the same steps headless, in one shot. The detectors still do all the marker detection: the window uses OpenCV and iceoryx2 only to show the images.
+Subscribes to every detector's marker stream while the cameras look at the IPS calib board, accumulates the marker centres per camera, and solves each camera's pose in the world frame by a rigid least-squares (Kabsch) fit against the board geometry in `parameters/ips_calib.yaml`. Writes one `sbNN_full.yaml` per camera. Run once per camera placement, not part of the live pipeline. By default it runs in a window that shows every camera's live image, and the operator starts the collection, the fit and the write by key; `ui: false` runs the same steps headless, in one shot. The detectors still do all the marker detection: the window uses OpenCV and iceoryx2 only to show the images.
 
 ## Inputs
 
 - `<device>/ws_ips/ips_detect-$*/zenoh/markers` with the detectors set to `family: april`, `marker_size: 0.185`.
 - `<device>/ws_ips/ips_cam_gcam_pub-sbNN/iox2/image` (MONO8 1280x1024), window mode only: one iceoryx2 subscriber per camera, opened by the calibrator beside the detector's own subscription to the same stream. iceoryx2 has no wildcard, so this input is not in the `wires:` of `calib.flow.yaml`. No image is saved to disk.
-- `calibration/ips_calib.yaml` (board and placement), `calibration/intrinsics/sbNN-camchain.yaml` (K, copied into the output and used to place the tag labels in the window).
-- `parameters/calib_params.yaml`: `cameras`, `frames`, `timeout_s`, `min_markers`, `ui`, `rms_warn_m`.
+- `calibration/intrinsics/sbNN-camchain.yaml`: K, copied into the output and used to place the tag labels in the window.
+- `parameters/ips_calib.yaml`: the run settings `cameras`, `frames`, `timeout_s`, `min_markers`, `ui`, `rms_warn_m`, then the board (`world_frame`, `board`, `placement`). The only file that describes the board; nothing else reads it.
 
 ## Outputs
 
@@ -23,7 +23,7 @@ Subscribes to every detector's marker stream while the cameras look at the IPS c
 
 ## Two modes
 
-`ui:` in `parameters/calib_params.yaml` chooses the mode.
+`ui:` in `parameters/ips_calib.yaml` chooses the mode.
 
 `ui: true`, the default, opens one OpenCV window titled `ips_calib`: the cameras in a grid (2x2 for four, `ceil(sqrt(N))` columns in general) and a text panel under it. Each tile is the camera's live frame at half size, with the board tags the detector reports labelled `[id]`, a counter at the top right and a progress bar while collecting (`142/300`), and a status line at the bottom left. The labels are placed by projecting each tag centre through `K` (pinhole, distortion ignored), so a label may sit a few pixels off its tag. The panel gives the state, one instruction, and only the keys valid in that state:
 
@@ -44,8 +44,8 @@ Nothing is written to disk until Y. A skipped camera (fewer than `min_markers` b
 
 ```
 src/main.rs          load the setup, then the window or the headless run, by `ui`
-src/setup.rs         parameters, paths, board, camchains, the marker stream
-src/board.rs         ips_calib.yaml to world-frame marker centres
+src/setup.rs         parameters (run settings and board), paths, camchains, the marker stream
+src/board.rs         the board section of ips_calib.yaml to world-frame marker centres
 src/accumulate.rs    per camera, per marker id: median of the observed centres
 src/fit.rs           fit_extrinsics, reprojection_residual                      <- stubs
 src/calibrate.rs     fit and write one camera
@@ -57,7 +57,7 @@ src/mosaic.rs        OpenCV drawing: the camera grid, the panel, the confirmatio
 src/session.rs       the interactive run, ui: true (feature `ui`)
 tests/fit.rs
 tests/ui.rs
-parameters/calib_params.yaml
+parameters/ips_calib.yaml
 sb.module.yaml       subscribers `markers`, `image`; LIBCLANG_PATH under platforms.<os>.env
 src/lib.rs           crate root: the swarmbotix_io includes, the prost types, the modules above
 build.rs             prost on ../../messages/custom/*.proto
@@ -73,7 +73,7 @@ Scaffold. The subscribers, the accumulation, the window, and the yaml writer are
 
 | Stub | Where | Test |
 |---|---|---|
-| `fit_extrinsics`: paired world and camera-frame marker centres to `R`, `t` (Kabsch / Umeyama, SVD) | `src/fit.rs` | `tests/fit.rs`: synthetic pairs with a known transform, a reflected set, too few points; the board model on `calibration/ips_calib.yaml` |
+| `fit_extrinsics`: paired world and camera-frame marker centres to `R`, `t` (Kabsch / Umeyama, SVD) | `src/fit.rs` | `tests/fit.rs`: synthetic pairs with a known transform, a reflected set, too few points; the board model on `parameters/ips_calib.yaml` |
 | `reprojection_residual`: RMS of the fitted centres against the measured ones | `src/fit.rs` | same |
 
 A camera needs at least `min_markers` distinct board ids in view or it is skipped.

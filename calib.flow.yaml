@@ -8,7 +8,7 @@
 #   sb up calib              # no session running: builds and starts the nodes
 #   sb down && sb up calib   # the default flow is up: the tmux session belongs
 #                            # to the workspace and `sb up` refuses an existing one
-# With ui: true in its calib_params.yaml (the default), ips_calib opens an
+# With ui: true in its parameters/ips_calib.yaml (the default), ips_calib opens an
 # OpenCV window with every camera: S collects, C calibrates, W then Y writes.
 # The window needs a display: the calibrator runs inside tmux and inherits
 # DISPLAY from the terminal that ran `sb up`. ui: false runs the headless

@@ -1,14 +1,15 @@
-//! The IPS calib board: `calibration/ips_calib.yaml` to world-frame marker centres.
+//! The IPS calib board: the board section of `parameters/ips_calib.yaml` to
+//! world-frame marker centres.
 //!
 //! The config is in millimetres; everything returned here is in metres. The world
 //! frame, the board layout and its placement (origin marker, position, tilt) all
-//! come from the yaml.
+//! come from the yaml, loaded with the run settings by `setup::Params`.
 
 use nalgebra::{Matrix3, Vector3};
 use std::collections::HashMap;
-use std::path::Path;
 
-/// `calibration/ips_calib.yaml`.
+/// The board keys of `parameters/ips_calib.yaml`: `world_frame`, `board`,
+/// `placement`. Flattened into `setup::Params`, which checks the file's keys.
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct CalibConfig {
     pub world_frame: String,
@@ -17,6 +18,7 @@ pub struct CalibConfig {
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Board {
     /// Fiducial dictionary the board is printed in (`april` / `aruco`). The
     /// detectors must run the same family; ips_calib warns when they do not.
@@ -28,6 +30,7 @@ pub struct Board {
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Placement {
     /// This marker's centre is placed at `position_mm`.
     pub origin_id: i32,
@@ -37,13 +40,6 @@ pub struct Placement {
 }
 
 impl CalibConfig {
-    /// Read and parse the board config.
-    pub fn load(path: &Path) -> Result<Self, String> {
-        let text = std::fs::read_to_string(path)
-            .map_err(|e| format!("cannot read board config '{}': {e}", path.display()))?;
-        serde_yaml::from_str(&text).map_err(|e| format!("parse '{}': {e}", path.display()))
-    }
-
     /// Centre-to-centre distance of neighbouring markers, metres.
     pub fn pitch_m(&self) -> f64 {
         (self.board.marker_size_mm + self.board.marker_gap_mm) / 1000.0

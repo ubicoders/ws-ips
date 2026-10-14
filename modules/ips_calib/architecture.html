@@ -244,7 +244,7 @@ body{font-size:17px}
       <text x="530" y="172" class="tm" text-anchor="middle">board.rs</text>
       <!-- board yaml -->
       <path d="M460 250h110l30 18v52H460z" class="doc"/>
-      <text x="530" y="282" class="tm" text-anchor="middle">calibration/ips_calib.yaml</text>
+      <text x="530" y="282" class="tm" text-anchor="middle">parameters/ips_calib.yaml</text>
       <text x="530" y="300" class="ts" text-anchor="middle">2x3 tags, 215 mm apart</text>
       <path d="M530 248V182" class="a file" marker-end="url(#ah-file)"/>
       <!-- board drawing -->
@@ -299,8 +299,7 @@ body{font-size:17px}
   <div class="io">
     <div><h3>Reads</h3><ul>
       <li><span class="tag net">zenoh</span><span><code>.../ips_detect-$*/zenoh/markers</code>, all four cameras at once</span></li>
-      <li><span class="tag cfg">yaml</span><span><code>parameters/calib_params.yaml</code>: cameras, frames 300, timeout 30 s, min_markers 3</span></li>
-      <li><span class="tag file">yaml</span><span><code>calibration/ips_calib.yaml</code>: board layout and where it sits</span></li>
+      <li><span class="tag cfg">yaml</span><span><code>parameters/ips_calib.yaml</code>: cameras, frames 300, timeout 30 s, min_markers 3, and the board layout and where it sits</span></li>
       <li><span class="tag file">yaml</span><span><code>calibration/intrinsics/sbNN-camchain.yaml</code></span></li>
     </ul></div>
     <div><h3>Writes</h3><ul>

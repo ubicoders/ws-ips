@@ -6,6 +6,7 @@
 
 use ips_calib::board::{self, CalibConfig};
 use ips_calib::fit::{fit_extrinsics, reprojection_residual};
+use ips_calib::setup::Params;
 use nalgebra::{Matrix3, Quaternion, UnitQuaternion, Vector3};
 use std::path::Path;
 
@@ -118,8 +119,8 @@ fn reflected_set_still_gives_a_proper_rotation() {
 }
 
 fn shipped_board() -> CalibConfig {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../calibration/ips_calib.yaml");
-    CalibConfig::load(&path).expect("calibration/ips_calib.yaml")
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("parameters/ips_calib.yaml");
+    Params::load(&path).expect("parameters/ips_calib.yaml").cfg
 }
 
 #[test]
