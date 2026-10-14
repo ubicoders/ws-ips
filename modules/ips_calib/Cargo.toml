@@ -2,7 +2,7 @@
 name = "ips_calib"
 version = "0.1.0"
 edition = "2021"
-description = "One-shot extrinsic calibration of the IPS cameras from the detectors' marker stream (Kabsch fit against the calib board)"
+description = "Extrinsic calibration of the IPS cameras from the detectors' marker stream (Kabsch fit against the calib board), with a live camera window"
 
 [lib]
 path = "src/lib.rs"
@@ -10,6 +10,13 @@ path = "src/lib.rs"
 [[bin]]
 name = "ips_calib"
 path = "src/main.rs"
+
+[features]
+# `ui`: the interactive window (OpenCV highgui). Off, the binary only runs the
+# headless one-shot (`ui: false` in calib_params.yaml), which lets the logic
+# build and test on a machine without OpenCV. `sb up` builds the default set.
+default = ["ui"]
+ui = ["dep:opencv"]
 
 [dependencies]
 # Fan-in subscriber on every detector's marker stream. Matches the host zenoh
@@ -25,6 +32,37 @@ prost = "0.14"
 nalgebra = "0.33"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
+
+# Every camera's image stream for the window. Pinned exactly to the host
+# iceoryx2 v0.9.3, as in ips_detect: IPC is not compatible across 0.9.x point
+# releases, so the whole bb/pal family must be `=0.9.3` or cargo silently pulls
+# another patch for the transitive shm crates.
+iceoryx2 = "=0.9.3"
+iceoryx2-bb-concurrency = "=0.9.3"
+iceoryx2-bb-container = "=0.9.3"
+iceoryx2-bb-derive-macros = "=0.9.3"
+iceoryx2-bb-elementary = "=0.9.3"
+iceoryx2-bb-elementary-traits = "=0.9.3"
+iceoryx2-bb-linux = "=0.9.3"
+iceoryx2-bb-lock-free = "=0.9.3"
+iceoryx2-bb-loggers = "=0.9.3"
+iceoryx2-bb-memory = "=0.9.3"
+iceoryx2-bb-posix = "=0.9.3"
+iceoryx2-bb-print = "=0.9.3"
+iceoryx2-bb-system-types = "=0.9.3"
+iceoryx2-cal = "=0.9.3"
+iceoryx2-log = "=0.9.3"
+iceoryx2-log-types = "=0.9.3"
+iceoryx2-pal-concurrency-sync = "=0.9.3"
+iceoryx2-pal-configuration = "=0.9.3"
+iceoryx2-pal-os-api = "=0.9.3"
+iceoryx2-pal-posix = "=0.9.3"
+iceoryx2-pal-print = "=0.9.3"
+
+# The window: highgui for the one window and its keys, imgproc for the tiles
+# and the text. `clang-runtime` dlopens libclang at build time
+# (LIBCLANG_PATH=/usr/lib/llvm-18/lib). Optional, behind the `ui` feature.
+opencv = { version = "0.98", default-features = false, features = ["highgui", "imgproc", "clang-runtime"], optional = true }
 
 [build-dependencies]
 # Generate Rust types from messages/custom/*.proto of this repository.

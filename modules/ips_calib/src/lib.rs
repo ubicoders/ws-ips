@@ -18,10 +18,24 @@ pub mod msgs {
     include!(concat!(env!("OUT_DIR"), "/swarmbotix.custom.rs"));
 }
 
+// sb-generated iceoryx2 subscriber for `ros2/sensor_msgs/Image1280x1024`. Do
+// not edit, `sb install .` regenerates it. Its baked default key is this
+// module's own; `images` overrides `full` with each camera publisher's key.
+#[path = "../swarmbotix_io/subscribers/image.rs"]
+pub mod image;
+
 pub mod accumulate;
 pub mod board;
 pub mod calibrate;
 pub mod fit;
 pub mod headless;
+pub mod images;
 pub mod setup;
+pub mod ui;
 pub mod writer;
+
+// The window: OpenCV drawing and the interactive run. Behind the `ui` feature.
+#[cfg(feature = "ui")]
+pub mod mosaic;
+#[cfg(feature = "ui")]
+pub mod session;

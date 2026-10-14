@@ -14,6 +14,8 @@
 # Camera index into modules/ips_cam_gcam_pub/parameters/cam_params.yaml: 0 -> sb00, 1 -> sb01, ...
 # e.g. 0 reads calibration/intrinsics/sb00-camchain.yaml and writes calibration/extrinsics/sb00_full.yaml
 cameras: [0, 1, 2, 3]
-frames: 300             # marker frames to accumulate per camera before fitting
-timeout_s: 30           # give up waiting for a camera after this long
+frames: 300             # marker frames to collect per camera before fitting
+timeout_s: 30           # headless mode only: give up waiting after this long
 min_markers: 3          # a camera that saw fewer distinct board ids is skipped
+ui: true                # true: the window (S collect, C calibrate, W write); false: headless one-shot
+rms_warn_m: 0.01        # window only: a residual above this shows amber

@@ -50,19 +50,25 @@ under `nodes:`.
 
 ### The calib flow
 
-Calibration is a one-shot step, not part of the live pipeline. `ips_calib` is registered, so
-`sb install .` renders its `swarmbotix_io/`, but it is a node of the `calib` flow only: `sb up`
-neither builds nor starts it, and `sb run ips_calib` is refused while the default flow is active
-(`module ips_calib is not a node of flow default`). The tmux session `sb-ws_ips` belongs to the
-workspace, not to a flow, and `sb up` refuses a session that already exists, so switching to
-calibration is `sb down && sb up calib` (plain `sb up calib` when nothing is running). It builds
-and starts the cameras, the detectors and `ips_calib` together, and records `calib` as the active
-flow. `sb run` follows the active flow: while `calib` is active, `sb run ips_calib` runs the
-calibrator again in its window, and `sb run --fg ips_calib` runs it in the current terminal
-instead. Its window stays open after the calibrator exits, so the results table remains readable
-until `sb stop ips_calib` closes it. `sb down && sb up` returns to the live pipeline. `sb down`
-leaves the active flow recorded, so until the next `sb up`, `sb run` still reads the `calib` flow
-and refuses `ips_track` and `ips_viz`.
+Calibration is a separate step, run once per camera placement, not part of the live pipeline.
+`ips_calib` is registered, so `sb install .` renders its `swarmbotix_io/`, but it is a node of
+the `calib` flow only: `sb up` neither builds nor starts it, and `sb run ips_calib` is refused
+while the default flow is active (`module ips_calib is not a node of flow default`). The tmux
+session `sb-ws_ips` belongs to the workspace, not to a flow, and `sb up` refuses a session that
+already exists, so switching to calibration is `sb down && sb up calib` (plain `sb up calib` when
+nothing is running). It builds and starts the cameras, the detectors and `ips_calib` together,
+and records `calib` as the active flow. With `ui: true` in its `calib_params.yaml`, the default,
+the calibrator opens an OpenCV window, `ips_calib`, with every camera's live image, and collects,
+fits and writes on keys (see `modules/ips_calib/README.md`). The window needs a display: the
+calibrator runs inside tmux and inherits `DISPLAY` from the terminal that ran `sb up`. Besides
+the wired marker stream, it opens one iceoryx2 image subscriber per camera itself, which no wire
+records because iceoryx2 has no wildcard. `sb run` follows the active flow: while `calib` is
+active, `sb run ips_calib` runs the calibrator again in its tmux window, and
+`sb run --fg ips_calib` runs it in the current terminal instead. The tmux window stays open after
+the calibrator exits, so the printed results remain readable until `sb stop ips_calib` closes it.
+`sb down && sb up` returns to the live pipeline. `sb down` leaves the active flow recorded, so
+until the next `sb up`, `sb run` still reads the `calib` flow and refuses `ips_track` and
+`ips_viz`.
 
 ### instances
 

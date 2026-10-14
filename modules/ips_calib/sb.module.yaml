@@ -1,11 +1,27 @@
-# sb module manifest (sb 0.8.0+). One-shot: subscribes to every detector, fits,
-# writes calibration/extrinsics/, exits. Not part of `sb up`: a node of
-# calib.flow.yaml only, started with `sb up calib`.
+# sb module manifest (sb 0.8.0+). Subscribes to every detector and to every
+# camera's image stream, fits, writes calibration/extrinsics/. Not part of
+# `sb up`: a node of calib.flow.yaml only, started with `sb up calib`.
+# The opencv crate (the window) parses OpenCV headers with libclang at build
+# time; LIBCLANG_PATH points at the LLVM lib directory, as in ips_detect.
 module: ips_calib
 language: rust
+platforms:
+  linux:
+    env:
+      LIBCLANG_PATH: ${LIBCLANG_PATH:-/usr/lib/llvm-18/lib}
+  windows:
+    env:
+      LIBCLANG_PATH: ${LIBCLANG_PATH:-C:/Program Files/LLVM/bin}
 subscribers:
   # Bare topic on purpose; main() overrides `full` at startup to the wildcard
   # <device>/ws_ips/ips_detect-$*/zenoh/markers (every detector instance).
   markers:
     type: ros2/custom/MarkerDetections
     transport: zenoh
+  # Bare topic on purpose; the window opens one per camera with `full` set to
+  # <device>/ws_ips/ips_cam_gcam_pub-sbNN/iox2/image. iceoryx2 has no wildcard,
+  # so this input is not in the `wires:` of calib.flow.yaml (as ips_viz's
+  # debug_image is not in sb.flow.yaml).
+  image:
+    type: ros2/sensor_msgs/Image1280x1024
+    transport: iceoryx2

@@ -7,7 +7,7 @@ Every `ips_*` folder under `modules/` is one swarmbotix (`sb`) module: one stand
 ```
 ips_cam_gcam_pub (x4)  ->  ips_detect (x4)  ->  ips_track  ->  ips_viz  ->  rerun
      iceoryx2                  zenoh              zenoh         gRPC
-                                  \-> ips_calib (one-shot, writes calibration/extrinsics/) -> ips_track
+                                  \-> ips_calib (window, writes calibration/extrinsics/) -> ips_track
 ```
 
 The wire keys and transports are tabulated in [docs/pipeline.md](docs/pipeline.md); the workspace and flow files are explained in [docs/workspace.md](docs/workspace.md).
@@ -18,7 +18,7 @@ The wire keys and transports are tabulated in [docs/pipeline.md](docs/pipeline.m
 | `ips_detect` | one per camera, same id as its camera | `ips_detect-sb00` .. `-sb03` | `ips_detect-sbNN` |
 | `ips_track` | singleton, merges the four detector streams | `ips_track` | `ips_track` |
 | `ips_viz` | singleton | `ips_viz` | none (subscribes only) |
-| `ips_calib` | singleton, one-shot, not part of `sb up` | `ips_calib`, started with the calibration flow, `sb up calib` | none (subscribes only) |
+| `ips_calib` | singleton, calibration window, not part of `sb up` | `ips_calib`, started with the calibration flow, `sb up calib` | none (subscribes only) |
 
 `sb.workspace.yaml` registers all five modules and the message definitions. Which of them run is said by the two flow files beside it: `sb.flow.yaml`, the flow `default` that `sb up` starts, runs the four live modules, and `calib.flow.yaml`, the flow `calib` that `sb up calib` starts, runs the cameras, the detectors and `ips_calib`. The camera ids live once per flow, as the `instances:` of the two per-camera modules, from which sb starts one process per id, and each flow's `wires:` records which publisher feeds which subscriber. Inside the programs, the camera list comes from `modules/ips_cam_gcam_pub/parameters/cam_params.yaml`, and the other modules refer to a camera by its index there. The ids in both flow files and the camera lists in the parameters yaml files must agree.
 
@@ -45,7 +45,7 @@ Images stay on the host in shared memory (iceoryx2); detections and the cube pos
                                                        │ <device>/ws_ips/ips_detect-sbNN/zenoh/markers
                                  ┌─────────────────────┤                │ iox2  debug_image (debug: true)
                                  ▼                     ▼                │
-   ips_calib  (one-shot, x1)                   ips_track  (Rust, x1)    │
+   ips_calib  (window, x1)                     ips_track  (Rust, x1)    │
    ┌──────────────────────────┐  calibration/  ┌────────────────────────┴───────┐
    │ AprilTag board 0.185 m   │  extrinsics/   │ subscribe ips_detect-$*/markers│
    │ Kabsch fit per camera    │ ──sbNN_full──▶ │ lift markers to world frame    │  <- stub: lift_to_world
@@ -182,7 +182,7 @@ sb run ips_viz                       # streams to rerun+http://127.0.0.1:9876/pr
 sb run --fg ips_viz                  # the same, in this terminal instead of a tmux window
 sb stop ips_viz                      # restarted rerun? restart ips_viz too, the stream does not reconnect
 
-sb down && sb up calib               # calibration flow: cameras, detectors, ips_calib (one-shot); plain `sb up calib` when nothing runs
+sb down && sb up calib               # calibration flow: cameras, detectors, ips_calib (window: S collect, C calibrate, W write); plain `sb up calib` when nothing runs
 sb run ips_calib                     # the calibrator again, while calib is the active flow
 sb run --fg ips_calib                # the same, in this terminal; exits with the calibrator's exit code
 sb down && sb up                     # back to the live pipeline; ips_track loads the new extrinsics at startup

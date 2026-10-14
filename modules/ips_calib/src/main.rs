@@ -25,37 +25,35 @@ fn main() {
         eprintln!("{USAGE}");
         std::process::exit(2);
     }
-    match run() {
-        Ok(0) => {
-            eprintln!("error: no camera could be fitted");
-            std::process::exit(1);
-        }
-        Ok(_) => {}
-        Err(e) => {
-            eprintln!("error: {e}");
-            std::process::exit(1);
-        }
+    if let Err(e) = run() {
+        eprintln!("error: {e}");
+        std::process::exit(1);
     }
 }
 
-/// Returns how many `sbNN_full.yaml` were written. The window returns 1 when
-/// the user quit without writing: that is a choice, not a failure.
-fn run() -> Result<usize, String> {
+/// The window succeeds whenever the operator quits: leaving without writing is
+/// a choice, not a failure. The headless run fails when no camera was fitted,
+/// since nothing else would tell a script that the run produced nothing.
+fn run() -> Result<(), String> {
     let setup = Setup::load()?;
     if setup.params.ui {
         run_ui(&setup)
     } else {
-        headless::run(&setup)
+        let written = headless::run(&setup)?;
+        if written == 0 {
+            return Err("no camera could be fitted".into());
+        }
+        Ok(())
     }
 }
 
 #[cfg(feature = "ui")]
-fn run_ui(setup: &Setup) -> Result<usize, String> {
+fn run_ui(setup: &Setup) -> Result<(), String> {
     ips_calib::session::run(setup)
 }
 
 #[cfg(not(feature = "ui"))]
-fn run_ui(_setup: &Setup) -> Result<usize, String> {
+fn run_ui(_setup: &Setup) -> Result<(), String> {
     Err("built without the `ui` feature (no OpenCV); set ui: false in calib_params.yaml \
          or rebuild with the default features"
         .to_string())

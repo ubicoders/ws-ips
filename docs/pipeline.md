@@ -26,7 +26,7 @@ A camera and the detector reading it share an id, `sb00` to `sb03`. The id is th
 ## Run order
 
 1. `sb up`: cameras, detectors, tracker, viewer. The detectors wait for their camera, the tracker publishes empty heartbeats until markers arrive.
-2. Once per camera placement: set the detectors to `family: april`, `marker_size: 0.185`, then switch to the calibration flow with `sb down && sb up calib`. It starts the cameras, the detectors (which read the new values at startup) and `ips_calib`, which writes `calibration/extrinsics/sbNN_full.yaml` and exits. While `calib` is the active flow, `sb run ips_calib` runs it again.
+2. Once per camera placement: set the detectors to `family: april`, `marker_size: 0.185`, then switch to the calibration flow with `sb down && sb up calib`. It starts the cameras, the detectors (which read the new values at startup) and `ips_calib`, whose window shows every camera: S collects, C calibrates, and W then Y writes `calibration/extrinsics/sbNN_full.yaml`. While `calib` is the active flow, `sb run ips_calib` runs it again.
 3. Detectors back on `aruco`, `0.087`, then `sb down && sb up` to return to the live pipeline; `ips_track` loads the new extrinsics at startup.
 4. `rerun` for the viewer.
 
