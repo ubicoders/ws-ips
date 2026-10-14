@@ -20,5 +20,8 @@ pub mod msgs {
 
 pub mod accumulate;
 pub mod board;
+pub mod calibrate;
 pub mod fit;
+pub mod headless;
+pub mod setup;
 pub mod writer;

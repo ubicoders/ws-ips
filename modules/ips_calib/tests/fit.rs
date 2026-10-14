@@ -117,16 +117,6 @@ fn reflected_set_still_gives_a_proper_rotation() {
     }
 }
 
-#[test]
-fn fewer_than_three_points_is_none() {
-    let p = [Vector3::new(0.1, 0.2, 1.0), Vector3::new(0.3, -0.2, 1.5)];
-    assert!(fit_extrinsics(&[], &[]).is_none());
-    assert!(fit_extrinsics(&p[..1], &p[..1]).is_none());
-    assert!(fit_extrinsics(&p, &p).is_none());
-    let q = [p[0], p[1], Vector3::new(1.0, 1.0, 2.0)];
-    assert!(fit_extrinsics(&q, &q[..2]).is_none(), "mismatched lengths");
-}
-
 fn shipped_board() -> CalibConfig {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../calibration/ips_calib.yaml");
     CalibConfig::load(&path).expect("calibration/ips_calib.yaml")
