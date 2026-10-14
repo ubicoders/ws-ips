@@ -2,7 +2,7 @@
 
 Done before or during module 1.
 
-1. Ubuntu 24 on a PC or laptop, no virtual machine, no WSL. Rust stable, then `bash install_dependency.bash` at the repository root for OpenCV and libclang.
+1. Ubuntu 24 on a PC or laptop, no virtual machine, no WSL. Rust stable, then `bash rust-opencv-dependency.bash` at the repository root for OpenCV and libclang.
 2. The sb CLI (0.8.0 or later) installed and `sb doctor` passing.
 3. The camera SDK: `bash drivers/gcam-mvsdk-rs/install.bash` after the clone below. It installs the `gcam-mvsdk-rs` command and downloads the vendor library into `~/.gcam-mvsdk/`. Nothing from the vendor is committed to this repository.
 4. Clone with submodules, set your device name, install the workspace:
