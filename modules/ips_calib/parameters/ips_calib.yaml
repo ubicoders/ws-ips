@@ -1,0 +1,42 @@
+# ips_calib.yaml: the parameters of ips_calib, the EXTRINSIC calibration.
+#
+# What this module solves: each camera's pose in the world frame (R, t), from
+# the AprilTag board the detectors see. Output: calibration/extrinsics/sbNN_full.yaml.
+#
+# What this file is NOT about: intrinsics (K, distortion). Those come from
+# Kalibr, outside this repo, and live in calibration/intrinsics/sbNN-camchain.yaml.
+# ips_calib only copies K into its output so one file per camera holds everything.
+#
+# Two parts: the run settings, then the board. Read at startup, no flags.
+
+# --- Run settings -------------------------------------------------------------
+# Camera index into modules/ips_cam_gcam_pub/parameters/cam_params.yaml: 0 -> sb00, 1 -> sb01, ...
+# e.g. 0 reads calibration/intrinsics/sb00-camchain.yaml and writes calibration/extrinsics/sb00_full.yaml
+cameras: [0, 1, 2, 3]
+frames: 300             # marker frames to collect per camera before fitting
+timeout_s: 30           # headless mode only: give up waiting after this long
+min_markers: 3          # a camera that saw fewer distinct board ids is skipped
+ui: true                # true: the window (S collect, C calibrate, W write); false: headless one-shot
+rms_warn_m: 0.01        # window only: a residual above this shows amber
+
+# --- The board ----------------------------------------------------------------
+# Known fiducial geometry for the extrinsic calibration. ips_calib builds each
+# marker's 3-D position in `world_frame` from this, then solves every camera's
+# pose in that frame from the markers it sees. Measure the printed tags with the
+# caliper and put the measured size here; the detectors must run the same
+# family and size (detector_params.yaml: family: april, marker_size: 0.185).
+
+world_frame: RDF                  # x = right, y = down, z = forward
+
+board:
+  family: april                   # AprilTag 36h11
+  marker_size_mm: 185             # tag side (black square), measured
+  marker_gap_mm: 30               # edge to edge; centre pitch = size + gap
+  layout:                         # marker id per [row][col]; row 0 = top, col 0 = left
+    - [0, 1, 2]
+    - [3, 4, 5]
+
+placement:
+  origin_id: 1                    # this marker's centre is the world origin
+  position_mm: [0, 0, 100]        # world position of origin_id's centre
+  orientation_deg: [0, 0, 0]      # XYZ Euler of the board in the world frame
