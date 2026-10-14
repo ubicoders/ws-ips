@@ -2,7 +2,7 @@
 
 Source of the two payload messages the pipeline carries over zenoh. The `.proto` files live here and are the single source: each Rust module's `build.rs` runs `prost-build` on `../../messages/custom/*.proto` directly, so every clone builds before any sb command has run. Nothing is shared between modules beyond the `.proto` text.
 
-The `messages:` entry of `flow.yaml` makes `sb install .` import the two files into the local sb message vault (`~/.swarmbotix/messages/ros2/message_definitions/custom/`) and compiles them there. That copy is for the sb tooling only: `sb pub`/`sb sub` need it to know the type when generating `swarmbotix_io/`. (`sb topic listen` shows these frames as hex: they are plain protobuf without the sb header its decoder looks for.)
+The `messages:` entry of `sb.workspace.yaml` makes `sb install .` import the two files into the local sb message vault (`~/.swarmbotix/messages/ros2/message_definitions/custom/`) and compiles them there. That copy is for the sb tooling only: the `sb io` generators need it to know the type when generating `swarmbotix_io/`, and `sb topic listen` decodes these frames against it, using the type every generated zenoh publisher stamps on the wire (`application/protobuf;ros2/custom/<Leaf>`).
 
 | File | Message | Published by | Carried on |
 |---|---|---|---|

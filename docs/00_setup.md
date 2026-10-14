@@ -3,9 +3,9 @@
 Done before or during module 1.
 
 1. Ubuntu 24 on a PC or laptop, no virtual machine, no WSL. Rust stable, tmux.
-2. The sb CLI (0.5.x) installed and `sb doctor` passing.
+2. The sb CLI (0.8.0 or later) installed and `sb doctor` passing.
 3. The camera SDK: `bash drivers/gcam-mvsdk-rs/install.bash` after the clone below. It installs the `gcam-mvsdk-rs` command and downloads the vendor library into `~/.gcam-mvsdk/`. Nothing from the vendor is committed to this repository.
-4. Clone with submodules, set your device name, run the setup script:
+4. Clone with submodules, set your device name, install the workspace:
 
    ```bash
    git clone --recurse-submodules https://github.com/ubicoders/ws-ips
@@ -14,8 +14,8 @@ Done before or during module 1.
    sb install .
    ```
 
-   The device name goes first because the generated code bakes it in. `sb install .` reads the committed `flow.yaml`: it creates and activates the sb workspace `ws_ips`, imports `messages/custom/*.proto` into your sb message vault and compiles them, and generates each module's `swarmbotix_io/` from its `sb.dev.yml`. Run it again after pulling, after editing `flow.yaml`, an `sb.dev.yml` or a `.proto`, and after moving the clone. After changing the device name, also run `sb io update --services ips_track`: sb leaves service routers alone on install, and the tracker's run script only renders a missing one. `sb ws check` reports anything out of date.
-5. `sb up` starts every module in `flow.yaml`, one tmux window each, in the session `sb-ws_ips`. With no cameras yet, the detectors wait and `ips_track` publishes empty heartbeats; that is expected.
+   The device name goes first because the generated code bakes it in. `sb install .` reads the committed `sb.workspace.yaml` and the two flow files beside it, `sb.flow.yaml` (the flow `default`) and `calib.flow.yaml` (the flow `calib`): it creates and activates the sb workspace `ws_ips`, installs both flows (`-- flows: default, calib`), imports `messages/custom/*.proto` into your sb message vault and compiles them, generates each module's `swarmbotix_io/` from its `sb.module.yaml`, and renders the tracker's service router `swarmbotix_io/services/cam_param.rs` when it is missing. Run it again after pulling, after editing `sb.workspace.yaml`, a flow file, an `sb.module.yaml` or a `.proto`, and after moving the clone. An existing service router is never overwritten, so after changing the device name also run `sb io update --services ips_track` to re-render it. `sb ws check` reports anything out of date.
+5. `sb up` starts the default flow, `sb.flow.yaml`: it builds the four live modules (`cargo build --release`), then starts each in the session `sb-ws_ips`, one tmux window per instance: four camera windows, four detector windows, `ips_track` and `ips_viz`. `ips_calib` is not a node of the default flow; it runs later in the calibration flow (`sb up calib`, see [03_calib.md](03_calib.md)). Building `ips_detect` needs libclang: sb sets `LIBCLANG_PATH` to `/usr/lib/llvm-18/lib` from that module's `sb.module.yaml`; if your LLVM lives elsewhere, export `LIBCLANG_PATH` before `sb up`. With no cameras yet, the detectors wait and `ips_track` publishes empty heartbeats; that is expected.
 
 Check from a second machine on the LAN, through the zenoh router:
 

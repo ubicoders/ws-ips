@@ -1,0 +1,25 @@
+# sb module manifest (sb 0.8.0+). The opencv crate parses OpenCV headers with
+# libclang at build time; LIBCLANG_PATH points at the LLVM lib directory.
+module: ips_detect
+language: rust
+platforms:
+  linux:
+    env:
+      LIBCLANG_PATH: ${LIBCLANG_PATH:-/usr/lib/llvm-18/lib}
+  windows:
+    env:
+      LIBCLANG_PATH: ${LIBCLANG_PATH:-C:/Program Files/LLVM/bin}
+publishers:
+  markers:                                  # <device>/ws_ips/ips_detect-sbNN/zenoh/markers
+    type: ros2/custom/MarkerDetections
+    transport: zenoh
+  debug_image:                              # <device>/ws_ips/ips_detect-sbNN/iox2/debug_image
+    type: ros2/sensor_msgs/Image1280x1024Color
+    transport: iceoryx2
+subscribers:
+  # Bare topic on purpose; main() overrides `full` at startup to the camera's key
+  # <device>/ws_ips/ips_cam_gcam_pub-sbNN/iox2/image (the `wires:` of sb.flow.yaml
+  # and calib.flow.yaml name it).
+  image:
+    type: ros2/sensor_msgs/Image1280x1024
+    transport: iceoryx2

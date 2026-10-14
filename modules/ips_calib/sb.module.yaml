@@ -1,14 +1,11 @@
-# sb module definition (sb 0.5.0+): portable, committed. No root: line, so the
-# module root is this folder. `sb install .` at the repository root renders
-# swarmbotix_io/ from it.
+# sb module manifest (sb 0.8.0+). One-shot: subscribes to every detector, fits,
+# writes calibration/extrinsics/, exits. Not part of `sb up`: a node of
+# calib.flow.yaml only, started with `sb up calib`.
 module: ips_calib
 language: rust
-io_dir: swarmbotix_io
-publishers: []
 subscribers:
   # Bare topic on purpose; main() overrides `full` at startup to the wildcard
   # <device>/ws_ips/ips_detect-$*/zenoh/markers (every detector instance).
-  - name: markers
-    topic: markers
+  markers:
     type: ros2/custom/MarkerDetections
     transport: zenoh

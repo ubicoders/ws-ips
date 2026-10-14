@@ -1,0 +1,12 @@
+# sb module manifest (sb 0.8.0+). The vendor GigE SDK is Linux-only: listing
+# only linux under platforms restricts the module to it. A platform entry needs
+# at least one key, hence `requires: [cargo]`, which the Rust build needs anyway.
+module: ips_cam_gcam_pub
+language: rust
+platforms:
+  linux:
+    requires: [cargo]
+publishers:
+  image:                                    # <device>/ws_ips/ips_cam_gcam_pub-sbNN/iox2/image
+    type: ros2/sensor_msgs/Image1280x1024
+    transport: iceoryx2

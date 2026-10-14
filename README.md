@@ -2,7 +2,7 @@
 
 Indoor positioning system (IPS) built in the Ubicoders IPS workshop. Four ceiling cameras watch a room, each frame is scanned for ArUco markers, the markers from all cameras are fused into one rigid pose per marker cube, and the pose is published over zenoh at 90 Hz. The repository ends at that pose on the wire. Feeding it into PX4 is the separate `ws-px4` repository.
 
-Every `ips_*` folder under `modules/` is one swarmbotix (`sb`) module: one standalone Rust crate, one `sb.dev.yml`, one run script, one process per instance (a camera publisher and a detector run as four processes each, one per camera, in their own tmux windows). A module depends on nothing in another module's folder. The pipeline, in run order:
+Every `ips_*` folder under `modules/` is one swarmbotix (`sb`) module: one standalone Rust crate, one `sb.module.yaml`, one process per instance (a camera publisher and a detector run as four processes each, one per camera, in their own tmux windows). sb builds and starts every module itself from that manifest. A module depends on nothing in another module's folder. The pipeline, in run order:
 
 ```
 ips_cam_gcam_pub (x4)  ->  ips_detect (x4)  ->  ips_track  ->  ips_viz  ->  rerun
@@ -10,7 +10,7 @@ ips_cam_gcam_pub (x4)  ->  ips_detect (x4)  ->  ips_track  ->  ips_viz  ->  reru
                                   \-> ips_calib (one-shot, writes calibration/extrinsics/) -> ips_track
 ```
 
-The wire keys and transports are tabulated in [docs/pipeline.md](docs/pipeline.md); the workspace file is explained in [docs/workspace.md](docs/workspace.md).
+The wire keys and transports are tabulated in [docs/pipeline.md](docs/pipeline.md); the workspace and flow files are explained in [docs/workspace.md](docs/workspace.md).
 
 | Module | Copies | Process and tmux window | Wire segment |
 |---|---|---|---|
@@ -18,9 +18,9 @@ The wire keys and transports are tabulated in [docs/pipeline.md](docs/pipeline.m
 | `ips_detect` | one per camera, same id as its camera | `ips_detect-sb00` .. `-sb03` | `ips_detect-sbNN` |
 | `ips_track` | singleton, merges the four detector streams | `ips_track` | `ips_track` |
 | `ips_viz` | singleton | `ips_viz` | none (subscribes only) |
-| `ips_calib` | singleton, one-shot, not part of `sb up` | `bash modules/ips_calib/runscript.bash`, own session `ips_calib-dev` | none (subscribes only) |
+| `ips_calib` | singleton, one-shot, not part of `sb up` | `ips_calib`, started with the calibration flow, `sb up calib` | none (subscribes only) |
 
-The camera ids come from `modules/ips_cam_gcam_pub/parameters/cam_params.yaml`; the other modules refer to a camera by its index there. `flow.yaml` lists all five modules (`ips_calib` with `up: false`, so `sb up` skips it) and the two per-camera ones under `instances:`.
+`sb.workspace.yaml` registers all five modules and the message definitions. Which of them run is said by the two flow files beside it: `sb.flow.yaml`, the flow `default` that `sb up` starts, runs the four live modules, and `calib.flow.yaml`, the flow `calib` that `sb up calib` starts, runs the cameras, the detectors and `ips_calib`. The camera ids live once per flow, as the `instances:` of the two per-camera modules, from which sb starts one process per id, and each flow's `wires:` records which publisher feeds which subscriber. Inside the programs, the camera list comes from `modules/ips_cam_gcam_pub/parameters/cam_params.yaml`, and the other modules refer to a camera by its index there. The ids in both flow files and the camera lists in the parameters yaml files must agree.
 
 ## Pipeline
 
@@ -84,7 +84,8 @@ Images stay on the host in shared memory (iceoryx2); detections and the cube pos
 | `drivers/` | `gcam-mvsdk-rs`, `gcam-mvsdk-py`: the camera driver, git submodules, pinned | path dependency of `ips_cam_gcam_pub` |
 | `messages/` | the two `.proto` payloads | every module compiles them in its own `build.rs`; `sb install .` also imports them into the sb vault so the io generators know the types |
 | `calibration/` | intrinsics, the calib board, extrinsics | files read and written at runtime |
-| `flow.yaml` | the sb workspace: modules (`ips_calib` with `up: false`), messages, instances | read by `sb install .` |
+| `sb.workspace.yaml` | the sb workspace inventory: the five modules and the messages | read by `sb install .` |
+| `sb.flow.yaml`, `calib.flow.yaml` | the flows `default` (live pipeline) and `calib` (calibration): `nodes:`, the camera `instances:`, `wires:` | read by `sb install .`; started by `sb up` and `sb up calib` |
 | `docs/` | the modules' lessons, `pipeline.md`, recorded captures in `data/` | reading |
 
 Every module folder has the same skeleton:
@@ -93,9 +94,7 @@ Every module folder has the same skeleton:
 modules/ips_<name>/
 ├── Cargo.toml          crate name = folder name = sb module name = wire segment; lib plus one bin
 ├── build.rs            prost on ../../messages/custom/*.proto (the four modules that speak protobuf)
-├── sb.dev.yml          sb module definition (publishers, subscribers, services), portable, committed
-├── runscript.bash      what `sb run` / `sb up` execute; forwards all args
-├── stopscript.bash     what `sb stop` runs after killing the process
+├── sb.module.yaml      sb module manifest (language, platforms, publishers, subscribers, services), portable, committed; sb builds and starts the module from it
 ├── parameters/         <name>_params.yaml, read at startup
 ├── swarmbotix_io/      sb-generated pub/sub/service code, written by `sb install .`, gitignored
 ├── src/                lib.rs (includes swarmbotix_io and the prost types), main.rs, this module's own code and stubs
@@ -103,14 +102,14 @@ modules/ips_<name>/
 └── README.md           inputs, outputs, wire keys, stubs
 ```
 
-Build and test inside the module folder (`cargo build --release`, `cargo test`); the OpenCV crate needs `LIBCLANG_PATH=/usr/lib/llvm-18/lib`, which the run scripts export. Do not run `cargo fmt` at a module root: it follows the `#[path]` includes and rewrites the generated `swarmbotix_io/` files.
+`sb up` and `sb run` build each module themselves (`cargo build --release`, the Rust default; no module declares `scripts:`). To build and test by hand, work inside the module folder (`cargo build --release`, `cargo test`). The OpenCV crate in `ips_detect` needs `LIBCLANG_PATH` at build time: sb sets it from `platforms.linux.env` in that module's `sb.module.yaml` (default `/usr/lib/llvm-18/lib`; export the variable before `sb up` to point it elsewhere), and a hand-run `cargo` there needs it exported in your shell. Do not run `cargo fmt` at a module root: it follows the `#[path]` includes and rewrites the generated `swarmbotix_io/` files.
 
 ## What arrives full and what you build
 
 | Folder | At handout | Filled by |
 |---|---|---|
 | `drivers/` | full, git submodules, pinned | nobody, read only |
-| `messages/`, `flow.yaml`, `docs/`, `calibration/intrinsics/`, `calibration/ips_calib.yaml` | full | nobody |
+| `messages/`, `sb.workspace.yaml`, `sb.flow.yaml`, `calib.flow.yaml`, `docs/`, `calibration/intrinsics/`, `calibration/ips_calib.yaml` | full | nobody |
 | `modules/ips_cam_gcam_pub/` | full | nobody |
 | `modules/ips_detect/` | module, `pose_from_corners` stubbed | you, module 2 |
 | `modules/ips_calib/` | module, `fit_extrinsics` and `reprojection_residual` stubbed | you, module 2 |
@@ -126,40 +125,42 @@ Each module's README states its inputs, outputs, wire keys, and the stubs to fil
 git clone --recurse-submodules https://github.com/ubicoders/ws-ips
 cd ws-ips
 sb config set device <yourname>   # first segment of every wire key; the generated code bakes it in
-sb install .                      # flow.yaml -> sb workspace ws_ips, messages into the vault, swarmbotix_io per module
-sb up                             # every module in flow.yaml
+sb install .                      # sb.workspace.yaml and the flow files -> sb workspace ws_ips, messages into the vault, swarmbotix_io per module
+sb up                             # builds, then starts the default flow (sb.flow.yaml): every module except ips_calib
 ```
 
 Details in [docs/00_setup.md](docs/00_setup.md).
 
 ## Run
 
-Three levels. Every command works from any directory; the run scripts `cd` to their module. All windows land in the tmux session `sb-ws_ips` (`sb attach`, switch with `Ctrl+b w`).
+Three levels. Every command works from any directory: sb finds each module through the installed workspace. `sb up` and `sb run` first build the module (`cargo build --release`, in your terminal; a failed build starts nothing), then start one process per instance in the module folder. An instance's process gets `--id <id>`; every process gets `SB_WORKSPACE`, `SB_MODULE` and `SB_MODULE_ROOT`, and an instance also `SB_INSTANCE_ID`. All windows land in the tmux session `sb-ws_ips` (`sb attach`, switch with `Ctrl+b w`). A window stays open after its process exits, so a crash leaves its output on screen. `sb up` starts one flow and records it as the active flow; `sb run` takes a module's instances from the active flow and refuses a module that is not a node of it.
 
 ### 1. Everything
 
 ```bash
-sb up        # every module in flow.yaml: 4 camera windows, 4 detector windows, ips_track, ips_viz
-sb down      # kill the whole tmux session
+sb up        # build, then start every node of sb.flow.yaml: 4 camera windows, 4 detector windows, ips_track, ips_viz
+sb down      # kill the whole tmux session sb-ws_ips
 ```
 
 ### 2. Per-camera modules: `ips_cam_gcam_pub`, `ips_detect`
 
-One process per camera. Without `--id` the run script opens one window per camera listed in the module's `parameters/` yaml; with `--id` it runs that one camera in the current window.
+One process per camera. sb opens one window per id in the module's `instances:` in the active flow (`sb.flow.yaml` after `sb up`), named `<module>-<id>`, and starts the binary there with `--id <id>`. `<module>:<id>` targets one instance; `sb run` on a window that is already open restarts it in place.
 
 ```bash
-sb run ips_cam_gcam_pub              # all cameras in cam_params.yaml, one window each
-sb run ips_cam_gcam_pub --id sb00    # one camera, this window
+sb run ips_cam_gcam_pub              # all four cameras, one window each (ips_cam_gcam_pub-sb00 .. -sb03)
+sb run ips_cam_gcam_pub:sb00         # one camera, window ips_cam_gcam_pub-sb00
 sb stop ips_cam_gcam_pub             # closes every ips_cam_gcam_pub-sbNN window
 
-sb run ips_detect                    # all cameras in detector_params.yaml, one window each
-sb run ips_detect --id sb00          # one detector, this window
+sb run ips_detect                    # all four detectors, one window each (ips_detect-sb00 .. -sb03)
+sb run ips_detect:sb00               # one detector, window ips_detect-sb00
 sb stop ips_detect                   # closes every ips_detect-sbNN window
 
-SB_NO_TMUX=1 bash modules/ips_detect/runscript.bash   # no tmux: one process, one thread per camera (CI, IDE)
+sb run --fg ips_detect:sb00          # no tmux: one detector in this terminal, Ctrl+C stops it (CI, IDE)
 ```
 
-Debug options, all in `modules/ips_detect/parameters/detector_params.yaml` (restart the detectors after editing):
+`--fg` runs exactly one process, so an instanced module needs its `:<id>`. Started by hand without `--id` (`cargo run --release` inside the module folder), either binary instead runs every camera of its parameters yaml in one process, one thread each.
+
+Debug options, all in `modules/ips_detect/parameters/detector_params.yaml` (restart the detectors with `sb run ips_detect` after editing):
 
 | Key | Effect |
 |---|---|
@@ -173,15 +174,21 @@ Camera check before anything else: `gcam-mvsdk-rs grab sb00` saves one test fram
 ### 3. Singletons: `ips_track`, `ips_viz`, `ips_calib`
 
 ```bash
-sb run ips_track                     # the tracker; restart it after a new calibration
+sb run ips_track                     # the tracker; it loads calibration/extrinsics/ at startup
 sb stop ips_track
 
 rerun                                # the viewer app, start it first
 sb run ips_viz                       # streams to rerun+http://127.0.0.1:9876/proxy
+sb run --fg ips_viz                  # the same, in this terminal instead of a tmux window
 sb stop ips_viz                      # restarted rerun? restart ips_viz too, the stream does not reconnect
 
-bash modules/ips_calib/runscript.bash        # calibration, one-shot, own tmux session ips_calib-dev; not in flow.yaml
+sb down && sb up calib               # calibration flow: cameras, detectors, ips_calib (one-shot); plain `sb up calib` when nothing runs
+sb run ips_calib                     # the calibrator again, while calib is the active flow
+sb run --fg ips_calib                # the same, in this terminal; exits with the calibrator's exit code
+sb down && sb up                     # back to the live pipeline; ips_track loads the new extrinsics at startup
 ```
+
+`ips_calib` is not a node of the default flow, so while `sb up` runs the live pipeline, `sb run ips_calib` is refused (`module ips_calib is not a node of flow default`). The session belongs to the workspace and `sb up` refuses one that exists, hence the `sb down` before switching flows. Details in [docs/03_calib.md](docs/03_calib.md).
 
 ### Peek at a topic
 

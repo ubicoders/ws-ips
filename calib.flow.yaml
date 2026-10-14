@@ -1,0 +1,28 @@
+# Flow "calib" of the sb workspace ws_ips (sb 0.8.0+): the one-shot extrinsic
+# calibration. Committed. Cameras, detectors and the calibrator run together;
+# ips_track and ips_viz are not nodes here. `sb install .` copies it to
+# ~/.swarmbotix/workspaces/ws_ips/flows/. See docs/03_calib.md.
+#
+# Set the detectors to the calib board first (family: april, marker_size:
+# 0.185), then:
+#   sb up calib              # no session running: builds and starts the nodes
+#   sb down && sb up calib   # the default flow is up: the tmux session belongs
+#                            # to the workspace and `sb up` refuses an existing one
+# `sb run` reads the active flow, the one the last `sb up` launched, and refuses
+# a module that is not a node of it, so `sb run ips_calib` beside the default
+# flow fails ("module ips_calib is not a node of flow default"). With calib
+# active, `sb run ips_calib` runs the calibrator again. `sb down && sb up`
+# returns to the live pipeline.
+
+name: calib
+nodes: [ips_cam_gcam_pub, ips_detect, ips_calib]
+
+# The same cameras as sb.flow.yaml; keep the two lists equal.
+instances:
+  ips_cam_gcam_pub: [sb00, sb01, sb02, sb03]
+  ips_detect: [sb00, sb01, sb02, sb03]
+
+# publisher: subscriber, checked by `sb ws check` only, as in sb.flow.yaml.
+wires:
+  ips_cam_gcam_pub[{id}].image: ips_detect.image
+  ips_detect[*].markers: ips_calib.markers

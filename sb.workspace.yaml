@@ -1,0 +1,30 @@
+# sb workspace ws_ips (sb 0.8.0+): the inventory. Committed; paths are relative
+# to this file. It lists the modules the workspace holds and the message
+# definitions it imports. Which modules run, how many times, and wired to what
+# is said by the flow files beside it: sb.flow.yaml (the flow "default", the
+# live pipeline) and calib.flow.yaml (the flow "calib", the calibration).
+#
+# `sb install .` writes the installed copy to ~/.swarmbotix/workspaces/ws_ips/
+# (sb.workspace.yaml plus flows/), imports and compiles messages/custom/ into
+# the vault, and regenerates the swarmbotix_io/ of every module listed here,
+# whether or not a flow runs it. Re-run it after editing this file, a flow file,
+# a module's sb.module.yaml, or a .proto. See docs/workspace.md.
+
+# The folder is ws-ips, which is not an identifier, so the name is spelled out.
+# It is the second segment of every wire key and the tmux session sb-ws_ips.
+name: ws_ips
+sb: ">=0.8"
+modules:
+  ips_cam_gcam_pub: modules/ips_cam_gcam_pub
+  ips_detect: modules/ips_detect
+  ips_track: modules/ips_track
+  ips_viz: modules/ips_viz
+  # Calibration is a one-shot step, not part of the live pipeline: registered
+  # and rendered like the others, but a node of calib.flow.yaml only, so
+  # `sb up` skips it and `sb up calib` starts it.
+  ips_calib: modules/ips_calib
+messages:
+  custom:
+    style: ros2
+    path: messages/custom
+    backends: [proto, iox2]

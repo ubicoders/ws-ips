@@ -447,7 +447,7 @@ fn run_camera(job: Job) -> Result<(), Box<dyn std::error::Error>> {
 
         // Publish this frame's detections (protobuf bytes over zenoh).
         det_pub
-            .publish(&msg.encode_to_vec())
+            .publish(&msg)
             .map_err(|e| e.to_string())?;
 
         if let Some(pubr) = &debug_pub {

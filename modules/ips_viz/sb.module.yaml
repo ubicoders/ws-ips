@@ -1,19 +1,13 @@
-# sb module definition (sb 0.5.0+): portable, committed. No root: line, so the
-# module root is this folder. `sb install .` at the repository root renders
-# swarmbotix_io/ from it.
+# sb module manifest (sb 0.8.0+). Start the rerun viewer first (`rerun`).
 module: ips_viz
 language: rust
-io_dir: swarmbotix_io
-publishers: []
 subscribers:
   # Bare topics on purpose; main() overrides `full` at startup to
   #   <device>/ws_ips/ips_track/zenoh/cube_poses
   #   <device>/ws_ips/ips_detect-sbNN/iox2/debug_image   (one per camera)
-  - name: cube_poses
-    topic: cube_poses
+  cube_poses:
     type: ros2/custom/CubePoses
     transport: zenoh
-  - name: debug_image
-    topic: debug_image
+  debug_image:
     type: ros2/sensor_msgs/Image1280x1024Color
     transport: iceoryx2

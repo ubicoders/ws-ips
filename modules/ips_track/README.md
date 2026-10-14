@@ -34,7 +34,7 @@ src/filter_kf.rs       constant-velocity Kalman, KalmanFilter::update           
 src/fps.rs             rate meter
 tests/
 parameters/tracker_params.yaml
-sb.dev.yml             subscriber `markers`, publisher `cube_poses`, service `cam_param`
+sb.module.yaml         subscriber `markers`, publisher `cube_poses`, service `cam_param` (router rendered by `sb install .` when missing)
 src/lib.rs             crate root: the swarmbotix_io includes, the prost types, the modules above
 build.rs               prost on ../../messages/custom/*.proto
 ```

@@ -1,0 +1,28 @@
+# Flow "default" of the sb workspace ws_ips (sb 0.8.0+): the live pipeline,
+# started by `sb up`. Committed. A flow names modules registered in
+# sb.workspace.yaml, never paths: which of them run (nodes), how many processes
+# each gets (instances), and which publisher feeds which subscriber (wires).
+# `sb install .` copies it to ~/.swarmbotix/workspaces/ws_ips/flows/; re-run it
+# after editing this file. See docs/workspace.md.
+
+name: default
+# ips_calib is registered but not a node here; it runs in calib.flow.yaml.
+nodes: [ips_cam_gcam_pub, ips_detect, ips_track, ips_viz]
+
+# One instance per camera. The ids must match the camera lists in every
+# module's parameters yaml, and the instances of calib.flow.yaml. `sb up` opens
+# one window per instance, ips_cam_gcam_pub-sb00 .. -sb03 and ips_detect-sb00
+# .. -sb03, each started with `--id sbNN`. ips_track and ips_viz are singletons.
+instances:
+  ips_cam_gcam_pub: [sb00, sb01, sb02, sb03]
+  ips_detect: [sb00, sb01, sb02, sb03]
+
+# publisher: subscriber. Checked by `sb ws check` (row `ws flows`); code
+# generation does not honour wires yet, so each module's main() still sets its
+# subscriber keys at startup.
+wires:
+  ips_cam_gcam_pub[{id}].image: ips_detect.image
+  ips_detect[*].markers: ips_track.markers
+  ips_track.cube_poses: ips_viz.cube_poses
+  # ips_viz.debug_image is iceoryx2, which has no wildcard: main() opens one
+  # subscriber per camera (ips_detect-sbNN/iox2/debug_image) itself.

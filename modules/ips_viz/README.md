@@ -6,7 +6,7 @@ Subscribes to the cube poses from `ips_track`, fetches each camera's extrinsics 
 
 - `<device>/ws_ips/ips_track/zenoh/cube_poses`.
 - `<device>/ws_ips/ips_track/zenoh/service/cam_param/sbNN` at startup, retried until the tracker answers.
-- `<device>/ws_ips/ips_detect-sbNN/iox2/debug_image` when `debug_show_images: true`.
+- `<device>/ws_ips/ips_detect-sbNN/iox2/debug_image` when `debug_show_images: true`, one subscriber per camera opened by `main()` (iceoryx2 has no wildcard, so this input is not in `wires:`).
 - `parameters/viz_params.yaml`: cube box size, cameras to draw, `rerun_hz`, which panels to show.
 
 ## Outputs
@@ -27,7 +27,7 @@ Subscribes to the cube poses from `ips_track`, fetches each camera's extrinsics 
 src/main.rs         the cam_param fetch, the subscribe loop
 src/visualize.rs    parameters, cube box and camera extrinsics, the rerun blueprint, cameras, cubes, plots, debug images
 parameters/viz_params.yaml
-sb.dev.yml          subscribers `cube_poses`, `debug_image`
+sb.module.yaml      subscribers `cube_poses`, `debug_image`
 src/lib.rs          crate root: the swarmbotix_io includes, the prost types, visualize
 build.rs            prost on ../../messages/custom/*.proto
 ```
@@ -43,6 +43,7 @@ Full. Nothing to build. Use the position plot to read jitter and the velocity pl
 ```bash
 rerun                       # the viewer, once
 sb run ips_viz
+sb run --fg ips_viz         # in this terminal instead of a tmux window
 sb stop ips_viz
 ```
 

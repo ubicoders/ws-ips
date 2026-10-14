@@ -3,7 +3,7 @@ __pycache__/
 *.pyc
 *.rrd
 
-# Generated per clone by `sb install .` from flow.yaml and each module's
-# sb.dev.yml (the files bake in this machine's device name and workspace).
+# Generated per clone by `sb install .` from sb.workspace.yaml and each module's
+# sb.module.yaml (the files bake in this machine's device name and workspace).
 swarmbotix_io/
 

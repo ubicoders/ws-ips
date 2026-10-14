@@ -24,12 +24,11 @@ The camera must be on its full 1280x1024 preset (the factory default). A frame o
 ## Layout
 
 ```
-src/main.rs        the camera selected by --id (all of them, one thread each, only without tmux), retry until the camera answers, the publish loop
-runscript.bash     no --id: opens one tmux window per camera running `--id sbNN`, then exits
+src/main.rs        the camera selected by --id (all of them, one thread each, when started by hand without --id), retry until the camera answers, the publish loop
 src/capture.rs     cam_params.yaml and --id, open by name, exposure, packet size, MONO8, grab into the payload
 src/lib.rs         crate root: the swarmbotix_io include and capture
 parameters/cam_params.yaml
-sb.dev.yml         publisher `image`
+sb.module.yaml     publisher `image`, Linux only; no scripts: sb builds with cargo and starts one process per instance with `--id sbNN`
 ```
 
 Depends on `drivers/gcam-mvsdk-rs` by path (`default-features = false`) and on iceoryx2 `=0.9.3`.
@@ -41,9 +40,10 @@ Full. Nothing to build.
 ## Run
 
 ```bash
-sb run ips_cam_gcam_pub              # one tmux window and process per camera in cam_params.yaml (ips_cam_gcam_pub-sbNN)
-sb run ips_cam_gcam_pub --id sb00    # one camera
+sb run ips_cam_gcam_pub              # builds, then one tmux window and process per instance in the active flow (ips_cam_gcam_pub-sbNN)
+sb run ips_cam_gcam_pub:sb00         # one camera
+sb run --fg ips_cam_gcam_pub:sb00    # one camera in this terminal, no tmux
 sb stop ips_cam_gcam_pub
 ```
 
-Parameters live in `parameters/` and are read at startup. No value is passed on the command line that also exists in the yaml; `--id` only narrows the list.
+Parameters live in `parameters/` and are read at startup. No value is passed on the command line that also exists in the yaml; `--id` only narrows the list. Every instance id in `sb.flow.yaml` and `calib.flow.yaml` must be a camera listed in `cam_params.yaml`.

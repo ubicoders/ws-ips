@@ -29,7 +29,7 @@ src/fit.rs           fit_extrinsics, reprojection_residual                      
 src/writer.rs        sbNN_full.yaml
 tests/fit.rs
 parameters/calib_params.yaml
-sb.dev.yml           subscriber `markers`
+sb.module.yaml       subscriber `markers`
 src/lib.rs           crate root: the swarmbotix_io include, the prost types, the modules above
 build.rs             prost on ../../messages/custom/*.proto
 ```
@@ -50,9 +50,13 @@ A camera needs at least `min_markers` distinct board ids in view or it is skippe
 ## Run
 
 ```bash
-bash modules/ips_calib/runscript.bash   # one shot, exits when done; own tmux session ips_calib-dev
-                                # (`up: false` in flow.yaml, so `sb up` never starts it; `sb run ips_calib` works too)
+sb down && sb up calib      # the calibration flow (calib.flow.yaml): cameras, detectors and this module together;
+                            # one shot, exits when done; its window ips_calib keeps the results until `sb stop ips_calib`
+sb run ips_calib            # run it again, while calib is the active flow
+sb run --fg ips_calib       # the same, in this terminal
 cargo test                  # inside this folder; the acceptance check
 ```
+
+This module is registered in `sb.workspace.yaml` but is a node of `calib.flow.yaml` only, so `sb up` (the default flow) never builds or starts it, and `sb run ips_calib` is refused while the default flow is active (`module ips_calib is not a node of flow default`). Use plain `sb up calib` when no session is running; `sb down && sb up` returns to the live pipeline.
 
 Parameters live in `parameters/` and are read at startup. No value is passed on the command line that also exists in the yaml.

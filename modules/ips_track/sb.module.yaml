@@ -1,0 +1,15 @@
+# sb module manifest (sb 0.8.0+).
+module: ips_track
+language: rust
+publishers:
+  cube_poses:                               # <device>/ws_ips/ips_track/zenoh/cube_poses
+    type: ros2/custom/CubePoses
+    transport: zenoh
+subscribers:
+  # Bare topic on purpose; main() overrides `full` at startup to the wildcard
+  # <device>/ws_ips/ips_detect-$*/zenoh/markers (every detector instance).
+  markers:
+    type: ros2/custom/MarkerDetections
+    transport: zenoh
+# The cam_param queryable: rendered to swarmbotix_io/services/cam_param.rs when missing.
+services: [cam_param]

@@ -646,7 +646,7 @@ fn fuse_and_publish(
         cubes,
     };
     publisher
-        .publish(&out.encode_to_vec())
+        .publish(&out)
         .map_err(|e| e.to_string())?;
 
     // Throttled console echo (~10 Hz).

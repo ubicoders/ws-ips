@@ -24,8 +24,7 @@ Subscribes to one camera's images, detects ArUco (or, for calibration, AprilTag)
 ## Layout
 
 ```
-src/main.rs          --id parsing, the frame loop, encoding, publish (all cameras in one process, one thread each, only without tmux)
-runscript.bash       no --id: opens one tmux window per camera running `--id sbNN`, then exits
+src/main.rs          --id parsing, the frame loop, encoding, publish (all cameras in one process, one thread each, when started by hand without --id)
 src/camera.rs        the iceoryx2 image subscription, wait-and-retry until the camera is up
 src/intrinsics.rs    camchain yaml to the OpenCV camera matrix and distortion
 src/markers.rs       dictionary selection, the detector call, pose_from_corners   <- stub
@@ -33,12 +32,12 @@ src/view.rs          the annotated debug frame
 src/fps.rs           rate meter
 tests/pose_from_corners.rs
 parameters/detector_params.yaml
-sb.dev.yml           subscriber `image`, publishers `markers`, `debug_image`
+sb.module.yaml       subscriber `image`, publishers `markers`, `debug_image`; LIBCLANG_PATH under platforms.<os>.env
 src/lib.rs           crate root: the swarmbotix_io includes, the prost types, the modules above
 build.rs             prost on ../../messages/custom/*.proto
 ```
 
-Depends on opencv (4.6 contrib `aruco`), iceoryx2 `=0.9.3`, zenoh 1.9, prost. Needs `LIBCLANG_PATH` to build; the run script sets it.
+Depends on opencv (4.6 contrib `aruco`), iceoryx2 `=0.9.3`, zenoh 1.9, prost. Needs `LIBCLANG_PATH` at build time only (the opencv crate parses the OpenCV headers with libclang). sb sets it from `platforms.linux.env` in `sb.module.yaml`, default `/usr/lib/llvm-18/lib`; export `LIBCLANG_PATH` to override it, and export it yourself for a `cargo build` or `cargo test` by hand.
 
 ## State at handout, and what you build
 
@@ -53,10 +52,11 @@ Rule that bites: `marker_size` must match the printed tag. Cube ArUco 0.087 m, c
 ## Run
 
 ```bash
-sb run ips_detect              # one tmux window and process per camera in detector_params.yaml (ips_detect-sbNN)
-sb run ips_detect --id sb00    # one camera
+sb run ips_detect              # builds, then one tmux window and process per instance in the active flow (ips_detect-sbNN)
+sb run ips_detect:sb00         # one camera
+sb run --fg ips_detect:sb00    # one camera in this terminal, no tmux
 sb stop ips_detect
 cargo test                     # inside this folder; the acceptance check
 ```
 
-Parameters live in `parameters/` and are read at startup. No value is passed on the command line that also exists in the yaml; `--id` only narrows the list.
+Parameters live in `parameters/` and are read at startup. No value is passed on the command line that also exists in the yaml; `--id` only narrows the list. Every instance id in `sb.flow.yaml` and `calib.flow.yaml` must be one of the cameras `detector_params.yaml` selects (by index into `cam_params.yaml`).
