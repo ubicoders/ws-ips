@@ -285,7 +285,8 @@ impl Canvas {
     /// The overwrite prompt, centred over the grid.
     pub fn draw_confirm(&mut self, rows: &[ConfirmRow], dir: &str) -> Res<()> {
         let grid = self.grid_rect();
-        let h = 60 + CONFIRM_ROW_H * rows.len() as i32 + 60;
+        // Title, a header line naming the unit, one row per file, the keys.
+        let h = 60 + CONFIRM_ROW_H * (rows.len() as i32 + 1) + 60;
         let bx = Rect::new(
             grid.x + (grid.width - CONFIRM_W) / 2,
             grid.y + (grid.height - h) / 2,
@@ -303,13 +304,18 @@ impl Canvas {
             PANEL_TITLE_SCALE,
         )?;
         let mut y = bx.y + 60 + 24;
+        // Header, aligned with the columns below.
+        for (text, dx) in [("residual rms (m)", 24), ("on disk", 300), ("this fit", 480)] {
+            put_label(img, text, Point::new(bx.x + dx, y), white(), PANEL_TEXT_SCALE)?;
+        }
+        y += CONFIRM_ROW_H;
         for row in rows {
             let old = row
                 .old_rms
-                .map(|v| format!("old {v:.3}"))
+                .map(|v| format!("old {v:.3} m"))
                 .unwrap_or_else(|| "old  none".to_string());
             let (new, tone) = match row.new_rms {
-                Some(v) => (format!("new {v:.3}"), Tone::Ok),
+                Some(v) => (format!("new {v:.3} m"), Tone::Ok),
                 None => ("skipped, kept".to_string(), Tone::Block),
             };
             put_label(img, &row.file, Point::new(bx.x + 24, y), white(), PANEL_TEXT_SCALE)?;

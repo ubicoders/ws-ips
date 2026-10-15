@@ -38,7 +38,7 @@ Subscribes to every detector's marker stream while the cameras look at the IPS c
 
 Nothing is written to disk until Y. A skipped camera (fewer than `min_markers` board ids, no frames, or a detector on another family) keeps its existing file. A residual above `rms_warn_m` shows amber. `frames` is the collection goal; `timeout_s` does not apply. The window needs a display: `sb up calib` starts the calibrator inside tmux, which inherits `DISPLAY` from the terminal that ran `sb up`, and `sb run --fg ips_calib` runs it in the current terminal instead.
 
-`ui: false` is the headless one-shot: accumulate until every camera has `frames` marker frames or `timeout_s` passes, fit, write, print the residuals, exit. It needs no display, and it is the only mode of a build without the `ui` feature.
+`ui: false` is the headless one-shot: accumulate until every camera has `frames` marker frames or `timeout_s` passes, fit, print one line per camera with the new residual and the one in the file on disk, ask `write N file(s) to calibration/extrinsics/ ? [y/N]` on the terminal, write on `y`, exit. A script answers by piping `y` into stdin. It needs no display, and it is the only mode of a build without the `ui` feature.
 
 ## Layout
 
@@ -50,7 +50,7 @@ src/accumulate.rs    per camera, per marker id: median of the observed centres
 src/fit.rs           fit_extrinsics, reprojection_residual                      <- stubs
 src/calibrate.rs     fit and write one camera
 src/writer.rs        sbNN_full.yaml
-src/headless.rs      the one-shot (ui: false): accumulate until frames or timeout, fit, write, exit
+src/headless.rs      the one-shot (ui: false): accumulate until frames or timeout, fit, ask [y/N], write, exit
 src/images.rs        one iceoryx2 image subscriber per camera; a copy of ips_detect/src/camera.rs by design, since modules share no code
 src/ui.rs            the window's state machine and text, pure (no OpenCV, no wire, no files)
 src/mosaic.rs        OpenCV drawing: the camera grid, the panel, the confirmation box (feature `ui`)

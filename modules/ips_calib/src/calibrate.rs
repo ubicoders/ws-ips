@@ -77,6 +77,19 @@ pub fn write_camera(
     Ok(out)
 }
 
+/// The one-line result of a fit, with the residual of the file on disk beside
+/// the new one, for the headless results block.
+pub fn fit_line(inst: &str, f: &CamFit, on_disk: Option<f64>) -> String {
+    let old = match on_disk {
+        Some(v) => format!("{v:.4} m"),
+        None => "none".to_string(),
+    };
+    format!(
+        "  {inst}: t=({:>8.4},{:>8.4},{:>8.4}) m  rms={:.4} m (on disk {old})  ids={:?}  frames={}",
+        f.t[0], f.t[1], f.t[2], f.rms, f.ids, f.frames
+    )
+}
+
 /// The one-line result for a written camera.
 pub fn result_line(inst: &str, f: &CamFit, out: &std::path::Path) -> String {
     format!(

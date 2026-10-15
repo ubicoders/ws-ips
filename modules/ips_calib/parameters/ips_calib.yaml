@@ -15,9 +15,9 @@
 cameras: [0, 1, 2, 3]
 frames: 300             # marker frames to collect per camera before fitting
 timeout_s: 30           # headless mode only: give up waiting after this long
-min_markers: 30         # a camera that saw fewer distinct board ids is skipped
-ui: true                # true: the window (S collect, C calibrate, W write); false: headless one-shot
-rms_warn_m: 0.01        # window only: a residual above this shows amber
+min_markers: 4          # a camera that saw fewer distinct board ids is skipped
+ui: true               # true: the window (S collect, C calibrate, W write); false: headless, prints the results, asks [y/N], writes
+rms_warn_m: 0.1         # window only: a residual above this shows amber
 
 # --- The board ----------------------------------------------------------------
 # Known fiducial geometry for the extrinsic calibration. ips_calib builds each
@@ -39,4 +39,4 @@ board:
 placement:
   origin_id: 1                    # this marker's centre is the world origin
   position_mm: [0, 0, 100]        # world position of origin_id's centre
-  orientation_deg: [0, 0, 0]      # XYZ Euler of the board in the world frame
+  orientation_deg: [1, 0, 0]      # XYZ Euler of the board in the world frame

@@ -1,14 +1,26 @@
 //! The headless one-shot (`ui: false`): accumulate until every camera has its
-//! frames or the timeout passes, fit, write, exit.
+//! frames or the timeout passes, fit, print every camera's result with the
+//! residual of the file on disk beside it, ask `[y/N]` on the terminal, write,
+//! exit. A script answers by piping `y` into stdin.
 
 use crate::accumulate::Accumulator;
-use crate::calibrate;
+use crate::calibrate::{self, CamFit};
 use crate::setup::{MarkerStream, Setup};
+use crate::writer::{self, Camchain};
 
+use std::io::{BufRead, Write};
 use std::time::{Duration, Instant};
 
-/// The whole run. Returns how many `sbNN_full.yaml` were written.
-pub fn run(setup: &Setup) -> Result<usize, String> {
+/// What the run produced.
+pub struct Outcome {
+    /// Cameras with a successful fit.
+    pub fitted: usize,
+    /// `sbNN_full.yaml` files written.
+    pub written: usize,
+}
+
+/// The whole run.
+pub fn run(setup: &Setup) -> Result<Outcome, String> {
     let params = &setup.params;
     let mut acc = Accumulator::new(setup.instances(), params.frames, &setup.cfg.board.family);
     let mut stream = MarkerStream::open()?;
@@ -46,22 +58,50 @@ pub fn run(setup: &Setup) -> Result<usize, String> {
     drop(stream);
 
     println!("\n=== results ===");
-    let mut written = 0;
+    let mut fits: Vec<(&str, &Camchain, CamFit)> = Vec::new();
     for (inst, cc) in &setup.cams {
-        let f = match calibrate::fit_camera(setup, &acc, inst) {
-            Ok(f) => f,
-            Err(why) => {
-                println!("  {inst}: {why}, skipped");
-                continue;
+        match calibrate::fit_camera(setup, &acc, inst) {
+            Ok(f) => {
+                println!("{}", calibrate::fit_line(inst, &f, calibrate::existing_rms(setup, inst)));
+                fits.push((inst, cc, f));
             }
-        };
-        match calibrate::write_camera(setup, inst, cc, &f) {
+            Err(why) => println!("  {inst}: {why}, skipped"),
+        }
+    }
+    let fitted = fits.len();
+    if fitted == 0 {
+        return Ok(Outcome { fitted, written: 0 });
+    }
+
+    let dir = writer::display_relative(&setup.paths.extrinsics, &setup.paths.repo);
+    if !ask_write(fitted, &dir)? {
+        println!("cancelled, nothing written");
+        return Ok(Outcome { fitted, written: 0 });
+    }
+
+    let mut written = 0;
+    for (inst, cc, f) in &fits {
+        match calibrate::write_camera(setup, inst, cc, f) {
             Ok(out) => {
                 written += 1;
-                println!("{}", calibrate::result_line(inst, &f, &out));
+                println!("{}", calibrate::result_line(inst, f, &out));
             }
             Err(e) => println!("  {inst}: {e}, skipped"),
         }
     }
-    Ok(written)
+    Ok(Outcome { fitted, written })
+}
+
+/// `[y/N]` on the terminal. Anything but `y` or `yes`, including an empty line
+/// or a closed stdin, is no.
+fn ask_write(n: usize, dir: &str) -> Result<bool, String> {
+    print!("\nwrite {n} file(s) to {dir}/ ? [y/N] ");
+    std::io::stdout().flush().map_err(|e| format!("stdout: {e}"))?;
+    let mut line = String::new();
+    std::io::stdin()
+        .lock()
+        .read_line(&mut line)
+        .map_err(|e| format!("stdin: {e}"))?;
+    let answer = line.trim().to_ascii_lowercase();
+    Ok(answer == "y" || answer == "yes")
 }
