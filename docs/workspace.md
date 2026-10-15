@@ -64,8 +64,10 @@ calibrator runs inside tmux and inherits `DISPLAY` from the terminal that ran `s
 the wired marker stream, it opens one iceoryx2 image subscriber per camera itself, which no wire
 records because iceoryx2 has no wildcard. `sb run` follows the active flow: while `calib` is
 active, `sb run ips_calib` runs the calibrator again in its tmux window, and
-`sb run --fg ips_calib` runs it in the current terminal instead. The tmux window stays open after
-the calibrator exits, so the printed results remain readable until `sb stop ips_calib` closes it.
+`sb run --fg ips_calib` runs it in the current terminal instead, which is where the headless mode
+(`ui: false`) belongs: it prints the results and asks `[y/N]` before writing. The tmux window stays
+open after the calibrator exits, so the printed results remain readable until `sb stop ips_calib`
+closes it.
 `sb down && sb up` returns to the live pipeline. `sb down` leaves the active flow recorded, so
 until the next `sb up`, `sb run` still reads the `calib` flow and refuses `ips_track` and
 `ips_viz`.

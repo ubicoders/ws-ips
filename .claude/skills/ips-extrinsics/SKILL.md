@@ -112,12 +112,13 @@ position invalidates that position's `sbNN_full.yaml`.
 ## Steps: headless one-shot
 
 For a machine without a display, or for scripted recalibration. Set `ui: false` in
-`ips_calib.yaml`, then `sb up calib` (or `sb run ips_calib` while `calib` is active). The
-calibrator accumulates until every camera has `frames` marker frames or `timeout_s` passes, fits,
-writes every camera that qualifies, prints one result line per camera under `=== results ===`
-(`<inst>: <reason>, skipped` for the others), and exits. Its tmux window keeps the output until
-`sb stop ips_calib`. There is no confirmation: files are overwritten as soon as the fit succeeds,
-so keep a copy of `calibration/extrinsics/` before a headless run on a working system. A build
+`ips_calib.yaml`, then `sb run --fg ips_calib` in the terminal while `calib` is active (or
+`sb up calib`, and answer in the `ips_calib` window after `sb attach`). The calibrator accumulates
+until every camera has `frames` marker frames or `timeout_s` passes, fits, prints one result line
+per camera under `=== results ===` with the new residual and the one in the file on disk
+(`<inst>: <reason>, skipped` for the others), asks `write N file(s) to calibration/extrinsics/ ?
+[y/N]`, writes every fitted camera on `y`, and exits. Anything else, including an empty line or a
+closed stdin, writes nothing. A script answers with `echo y | sb run --fg ips_calib`. A build
 without OpenCV (`cargo build --no-default-features`) has only this mode.
 
 ## Reading sbNN_full.yaml
@@ -189,8 +190,8 @@ same placement only if the board does not move between groups.
 
 ## Safety
 
-- Only W then Y (window) or a completed headless fit writes `calibration/extrinsics/`. Back the
-  folder up before a headless run; the window shows old and new residual before overwriting.
+- Only W then Y (window) or `y` at the headless prompt writes `calibration/extrinsics/`. Both show
+  the residual on disk next to the new one before overwriting.
 - Switching the detectors to `april` stops marker tracking of the cubes; switch back and `sb down &&
   sb up` after calibrating. The tracker loads extrinsics at startup only.
 - Do not edit `sbNN_full.yaml` by hand and do not hand-edit `ips_calib.yaml` placement between
