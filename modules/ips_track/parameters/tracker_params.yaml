@@ -17,13 +17,13 @@ rate_hz:  90          # fixed fuse and publish rate
 stale_ms: 200         # drop a camera unseen for this long
 alive_ms: 2000        # a cube unseen for this long publishes alive=false
 
-filter: lp            # none | lp | oneeuro | kf   (kf is the module 3 stub)
+filter: oneeuro            # none | lp | oneeuro | kf   (kf is the module 3 stub)
 lp_pose:  0.90        # EMA weight on the previous value, position
 lp_angle: 0.90        # same, orientation (SLERP)
 oe_min_cutoff_pos: 1.0
 oe_beta_pos:       0.9
-oe_min_cutoff_ang: 1.0
-oe_beta_ang:       0.9
+oe_min_cutoff_ang: 0.5
+oe_beta_ang:       0.0
 kf_q_pos:        0.1  # position accel PSD (m^2/s^3)
 kf_r_pos:        0.1  # base position measurement std (m)
 kf_q_ang:        0.01 # angular accel PSD (rad^2/s^3)
