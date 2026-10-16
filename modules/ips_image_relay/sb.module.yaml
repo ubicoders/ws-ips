@@ -1,0 +1,30 @@
+# sb module manifest (sb 0.8.0+). The opencv crate parses OpenCV headers with
+# libclang at build time; LIBCLANG_PATH points at the LLVM lib directory.
+module: ips_image_relay
+language: rust
+platforms:
+  linux:
+    env:
+      LIBCLANG_PATH: ${LIBCLANG_PATH:-/usr/lib/llvm-18/lib}
+  windows:
+    env:
+      LIBCLANG_PATH: ${LIBCLANG_PATH:-C:/Program Files/LLVM/bin}
+publishers:
+  # Half-size (640x512) copies of the two iceoryx2 image streams, for network
+  # peers that cannot read shared memory. Topic segments match the sources.
+  image:                                    # <device>/ws_ips/ips_image_relay-sbNN/zenoh/image
+    type: ros2/sensor_msgs/Image
+    transport: zenoh
+  debug_image:                              # <device>/ws_ips/ips_image_relay-sbNN/zenoh/debug_image
+    type: ros2/sensor_msgs/Image
+    transport: zenoh
+subscribers:
+  # Bare topics on purpose; main() overrides `full` at startup to the source keys
+  # <device>/ws_ips/ips_cam_gcam_pub-sbNN/iox2/image and
+  # <device>/ws_ips/ips_detect-sbNN/iox2/debug_image (the `wires:` of sb.flow.yaml name them).
+  image:
+    type: ros2/sensor_msgs/Image1280x1024
+    transport: iceoryx2
+  debug_image:
+    type: ros2/sensor_msgs/Image1280x1024Color
+    transport: iceoryx2

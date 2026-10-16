@@ -2,12 +2,14 @@
 
 Indoor positioning system (IPS) built in the Ubicoders IPS workshop. Four ceiling cameras watch a room, each frame is scanned for ArUco markers, the markers from all cameras are fused into one rigid pose per marker cube, and the pose is published over zenoh at 90 Hz. The repository ends at that pose on the wire. Feeding it into PX4 is the separate `ws-px4` repository.
 
-Every `ips_*` folder under `modules/` is one swarmbotix (`sb`) module: one standalone Rust crate, one `sb.module.yaml`, one process per instance (a camera publisher and a detector run as four processes each, one per camera, in their own tmux windows). sb builds and starts every module itself from that manifest. A module depends on nothing in another module's folder. The pipeline, in run order:
+Every `ips_*` folder under `modules/` is one swarmbotix (`sb`) module: one standalone Rust crate, one `sb.module.yaml`, one process per instance (a camera publisher and a detector run as four processes each, one per camera, in their own tmux windows, and so does the optional image relay). sb builds and starts every module itself from that manifest. A module depends on nothing in another module's folder. The pipeline, in run order:
 
 ```
 ips_cam_gcam_pub (x4)  ->  ips_detect (x4)  ->  ips_track  ->  ips_viz  ->  rerun
-     iceoryx2                  zenoh              zenoh         gRPC
-                                  \-> ips_calib (window, writes calibration/extrinsics/) -> ips_track
+     iceoryx2          |       zenoh              zenoh         gRPC
+                       |          \-> ips_calib (window, writes calibration/extrinsics/) -> ips_track
+                       \-> ips_image_relay (x4, optional, plus ips_detect's debug_image)  ->  network peers
+                                zenoh, half size; only in the relay flow (sb up relay)
 ```
 
 The wire keys and transports are tabulated in [docs/pipeline.md](docs/pipeline.md); the workspace and flow files are explained in [docs/workspace.md](docs/workspace.md).
@@ -16,15 +18,16 @@ The wire keys and transports are tabulated in [docs/pipeline.md](docs/pipeline.m
 |---|---|---|---|
 | `ips_cam_gcam_pub` | one per camera | `ips_cam_gcam_pub-sb00` .. `-sb03` | `ips_cam_gcam_pub-sbNN` |
 | `ips_detect` | one per camera, same id as its camera | `ips_detect-sb00` .. `-sb03` | `ips_detect-sbNN` |
+| `ips_image_relay` | one per camera, same id as its camera; optional, halves the camera and debug images onto zenoh, not part of `sb up` | `ips_image_relay-sb00` .. `-sb03`, started with the relay flow, `sb up relay` | `ips_image_relay-sbNN` |
 | `ips_track` | singleton, merges the four detector streams | `ips_track` | `ips_track` |
 | `ips_viz` | singleton | `ips_viz` | none (subscribes only) |
 | `ips_calib` | singleton, calibration window, not part of `sb up` | `ips_calib`, started with the calibration flow, `sb up calib` | none (subscribes only) |
 
-`sb.workspace.yaml` registers all five modules and the message definitions. Which of them run is said by the two flow files beside it: `sb.flow.yaml`, the flow `default` that `sb up` starts, runs the four live modules, and `calib.flow.yaml`, the flow `calib` that `sb up calib` starts, runs the cameras, the detectors and `ips_calib`. The camera ids live once per flow, as the `instances:` of the two per-camera modules, from which sb starts one process per id, and each flow's `wires:` records which publisher feeds which subscriber. Inside the programs, the camera list comes from `modules/ips_cam_gcam_pub/parameters/cam_params.yaml`, and the other modules refer to a camera by its index there. The ids in both flow files and the camera lists in the parameters yaml files must agree.
+`sb.workspace.yaml` registers all six modules and the message definitions. Which of them run is said by the three flow files beside it: `sb.flow.yaml`, the flow `default` that `sb up` starts, runs the four live modules; `relay.flow.yaml`, the flow `relay` that `sb up relay` starts, runs the same four plus the optional `ips_image_relay`; and `calib.flow.yaml`, the flow `calib` that `sb up calib` starts, runs the cameras, the detectors and `ips_calib`. The camera ids live once per flow, as the `instances:` of the per-camera modules (two in `sb.flow.yaml` and `calib.flow.yaml`, three in `relay.flow.yaml`), from which sb starts one process per id, and each flow's `wires:` records which publisher feeds which subscriber. Inside the programs, the camera list comes from `modules/ips_cam_gcam_pub/parameters/cam_params.yaml`, and the other modules refer to a camera by its index there. The ids in all three flow files and the camera lists in the parameters yaml files must agree.
 
 ## Pipeline
 
-Images stay on the host in shared memory (iceoryx2); detections and the cube pose cross the network (zenoh). `<device>` is the name set with `sb config set device`; every key is `<device>/ws_ips/<module>[-<id>]/<transport>/<topic>`.
+Images stay on the host in shared memory (iceoryx2); detections and the cube pose cross the network (zenoh), and so do half-size copies of the images while the optional `ips_image_relay` runs (the relay flow, `sb up relay`). `<device>` is the name set with `sb config set device`; every key is `<device>/ws_ips/<module>[-<id>]/<transport>/<topic>`.
 
 ```
  CAMERAS (GigE, HuaTeng)                       ips_cam_gcam_pub  (Rust on drivers/gcam-mvsdk-rs, x4, full at handout)
@@ -34,16 +37,19 @@ Images stay on the host in shared memory (iceoryx2); detections and the cube pos
                                                └───────────────┬────────────────┘
                                                                │ iox2  sensor_msgs/Image1280x1024
                                                                │ <device>/ws_ips/ips_cam_gcam_pub-sbNN/iox2/image
-                                                               ▼
-                                               ips_detect  (Rust, one per camera, x4)
-                                               ┌────────────────────────────────┐
-                                               │ OpenCV aruco DICT_4X4_250      │
-                                               │ marker side 0.087 m            │
-                                               │ pose per marker, camera frame  │  <- stub: pose_from_corners
-                                               └───────┬────────────────┬───────┘
-                                                       │ zenoh  custom/MarkerDetections
-                                                       │ <device>/ws_ips/ips_detect-sbNN/zenoh/markers
-                                 ┌─────────────────────┤                │ iox2  debug_image (debug: true)
+                  ┌────────────────────────────────────────────┤
+                  ▼                                            ▼
+   ips_image_relay  (optional, x4)             ips_detect  (Rust, one per camera, x4)
+   ┌─────────────────────────────┐             ┌────────────────────────────────┐
+   │ halve image and debug_image │ iox2        │ OpenCV aruco DICT_4X4_250      │
+   │ 1280x1024 -> 640x512        │◀────────────┤ marker side 0.087 m            │
+   │ INTER_AREA, header copied   │ debug_image │ pose per marker, camera frame  │  <- stub: pose_from_corners
+   └────┬────────────────────────┘             └───────┬────────────────┬───────┘
+        │ zenoh  sensor_msgs/Image                     │ zenoh  custom/MarkerDetections
+        │ .../ips_image_relay-sbNN/zenoh/image         │ <device>/ws_ips/ips_detect-sbNN/zenoh/markers
+        │ .../ips_image_relay-sbNN/zenoh/debug_image   │                │
+        ▼                        ┌─────────────────────┤                │ iox2  debug_image (debug: true)
+   network peers (phone app)     │                     │                │
                                  ▼                     ▼                │
    ips_calib  (window, x1)                     ips_track  (Rust, x1)    │
    ┌──────────────────────────┐  calibration/  ┌────────────────────────┴───────┐
@@ -74,18 +80,20 @@ Images stay on the host in shared memory (iceoryx2); detections and the cube pos
 
    Also subscribing to cube_poses over the zenoh router: a phone, a second machine,
    and the onboard computer of the ws-px4 repository. This repository ends at that key.
+   ips_image_relay is optional and not part of sb up: the relay flow (sb up relay) runs
+   the same pipeline with it.
 ```
 
 ## Layout
 
 | Folder | What | Shared how |
 |---|---|---|
-| `modules/` | `ips_cam_gcam_pub`, `ips_detect`, `ips_calib`, `ips_track`, `ips_viz`: the five modules | not shared; each builds alone |
+| `modules/` | `ips_cam_gcam_pub`, `ips_detect`, `ips_image_relay`, `ips_calib`, `ips_track`, `ips_viz`: the six modules | not shared; each builds alone |
 | `drivers/` | `gcam-mvsdk-rs`, `gcam-mvsdk-py`: the camera driver, git submodules, pinned | path dependency of `ips_cam_gcam_pub` |
 | `messages/` | the two `.proto` payloads | every module compiles them in its own `build.rs`; `sb install .` also imports them into the sb vault so the io generators know the types |
 | `calibration/` | intrinsics, the calib board, extrinsics | files read and written at runtime |
-| `sb.workspace.yaml` | the sb workspace inventory: the five modules and the messages | read by `sb install .` |
-| `sb.flow.yaml`, `calib.flow.yaml` | the flows `default` (live pipeline) and `calib` (calibration): `nodes:`, the camera `instances:`, `wires:` | read by `sb install .`; started by `sb up` and `sb up calib` |
+| `sb.workspace.yaml` | the sb workspace inventory: the six modules and the messages | read by `sb install .` |
+| `sb.flow.yaml`, `relay.flow.yaml`, `calib.flow.yaml` | the flows `default` (live pipeline), `relay` (live pipeline plus the image relay) and `calib` (calibration): `nodes:`, the camera `instances:`, `wires:` | read by `sb install .`; started by `sb up`, `sb up relay` and `sb up calib` |
 | `docs/` | the modules' lessons, `pipeline.md`, recorded captures in `data/` | reading |
 
 Every module folder has the same skeleton:
@@ -93,7 +101,7 @@ Every module folder has the same skeleton:
 ```
 modules/ips_<name>/
 ├── Cargo.toml          crate name = folder name = sb module name = wire segment; lib plus one bin
-├── build.rs            prost on ../../messages/custom/*.proto (the four modules that speak protobuf)
+├── build.rs            prost on ../../messages/custom/*.proto (the four modules that speak them; ips_image_relay compiles the vault's sensor_msgs/Image instead)
 ├── sb.module.yaml      sb module manifest (language, platforms, publishers, subscribers, services), portable, committed; sb builds and starts the module from it
 ├── parameters/         <name>_params.yaml, read at startup
 ├── swarmbotix_io/      sb-generated pub/sub/service code, written by `sb install .`, gitignored
@@ -102,19 +110,20 @@ modules/ips_<name>/
 └── README.md           inputs, outputs, wire keys, stubs
 ```
 
-`sb up` and `sb run` build each module themselves (`cargo build --release`, the Rust default; no module declares `scripts:`). To build and test by hand, work inside the module folder (`cargo build --release`, `cargo test`). The OpenCV crate in `ips_detect` needs `LIBCLANG_PATH` at build time: sb sets it from `platforms.linux.env` in that module's `sb.module.yaml` (default `/usr/lib/llvm-18/lib`; export the variable before `sb up` to point it elsewhere), and a hand-run `cargo` there needs it exported in your shell. Do not run `cargo fmt` at a module root: it follows the `#[path]` includes and rewrites the generated `swarmbotix_io/` files.
+`sb up` and `sb run` build each module themselves (`cargo build --release`, the Rust default; no module declares `scripts:`). To build and test by hand, work inside the module folder (`cargo build --release`, `cargo test`). The OpenCV crate in `ips_detect` and `ips_image_relay` needs `LIBCLANG_PATH` at build time: sb sets it from `platforms.linux.env` in each of the two modules' `sb.module.yaml` (default `/usr/lib/llvm-18/lib`; export the variable before `sb up` to point it elsewhere), and a hand-run `cargo` there needs it exported in your shell. Do not run `cargo fmt` at a module root: it follows the `#[path]` includes and rewrites the generated `swarmbotix_io/` files.
 
 ## What arrives full and what you build
 
 | Folder | At handout | Filled by |
 |---|---|---|
 | `drivers/` | full, git submodules, pinned | nobody, read only |
-| `messages/`, `sb.workspace.yaml`, `sb.flow.yaml`, `calib.flow.yaml`, `docs/`, `calibration/intrinsics/` | full | nobody |
+| `messages/`, `sb.workspace.yaml`, `sb.flow.yaml`, `relay.flow.yaml`, `calib.flow.yaml`, `docs/`, `calibration/intrinsics/` | full | nobody |
 | `modules/ips_cam_gcam_pub/` | full | nobody |
 | `modules/ips_detect/` | module, `pose_from_corners` stubbed | you, module 2 |
 | `modules/ips_calib/` | module, `fit_extrinsics` and `reprojection_residual` stubbed | you, module 2 |
 | `modules/ips_track/` | module, `lift_to_world`, `fit_cube`, and the Kalman filter (`KalmanFilter::update` plus the `Cv1` and `Mekf` predict and update steps) stubbed | you, module 3 |
 | `modules/ips_viz/` | full | nobody |
+| `modules/ips_image_relay/` | full | nobody |
 | `calibration/extrinsics/` | empty | `ips_calib`, at runtime |
 
 Each module's README states its inputs, outputs, wire keys, and the stubs to fill. A stub compiles and returns `todo!()`; its test in the module's `tests/` fails until you fill it, and `cargo test` inside the module folder is the acceptance check. A `solution/module<N>` tag is pushed after each module's deadline.
@@ -126,7 +135,7 @@ git clone --recurse-submodules https://github.com/ubicoders/ws-ips
 cd ws-ips
 sb config set device <yourname>   # first segment of every wire key; the generated code bakes it in
 sb install .                      # sb.workspace.yaml and the flow files -> sb workspace ws_ips, messages into the vault, swarmbotix_io per module
-sb up                             # builds, then starts the default flow (sb.flow.yaml): every module except ips_calib
+sb up                             # builds, then starts the default flow (sb.flow.yaml): every module except ips_calib and ips_image_relay
 ```
 
 Details in [docs/00_setup.md](docs/00_setup.md).
@@ -139,10 +148,11 @@ Three levels. Every command works from any directory: sb finds each module throu
 
 ```bash
 sb up        # build, then start every node of sb.flow.yaml: 4 camera windows, 4 detector windows, ips_track, ips_viz
+sb up relay  # the same plus 4 image relay windows (relay.flow.yaml); `sb down` first when a session runs
 sb down      # kill the whole tmux session sb-ws_ips
 ```
 
-### 2. Per-camera modules: `ips_cam_gcam_pub`, `ips_detect`
+### 2. Per-camera modules: `ips_cam_gcam_pub`, `ips_detect`, `ips_image_relay`
 
 One process per camera. sb opens one window per id in the module's `instances:` in the active flow (`sb.flow.yaml` after `sb up`), named `<module>-<id>`, and starts the binary there with `--id <id>`. `<module>:<id>` targets one instance; `sb run` on a window that is already open restarts it in place.
 
@@ -158,16 +168,30 @@ sb stop ips_detect                   # closes every ips_detect-sbNN window
 sb run --fg ips_detect:sb00          # no tmux: one detector in this terminal, Ctrl+C stops it (CI, IDE)
 ```
 
-`--fg` runs exactly one process, so an instanced module needs its `:<id>`. Started by hand without `--id` (`cargo run --release` inside the module folder), either binary instead runs every camera of its parameters yaml in one process, one thread each.
+`--fg` runs exactly one process, so an instanced module needs its `:<id>`. Started by hand without `--id` (`cargo run --release` inside the module folder), each of the three binaries instead runs every camera of its parameters yaml in one process, one thread each.
+
+`ips_image_relay` is optional and a node of the relay flow only, so while `sb up` runs the default flow, `sb run ips_image_relay` is refused (`module ips_image_relay is not a node of flow default`). In the relay flow:
+
+```bash
+sb down && sb up relay               # the pipeline plus the relays; plain `sb up relay` when nothing runs
+sb run ips_image_relay               # all four relays, one window each (ips_image_relay-sb00 .. -sb03)
+sb run ips_image_relay:sb00          # one relay, window ips_image_relay-sb00
+sb stop ips_image_relay              # closes every ips_image_relay-sbNN window; the pipeline keeps running
+sb down && sb up                     # back to the pipeline without the relay
+```
+
+Beside the default flow, start the relay by hand from `modules/ips_image_relay/` once it is built: `target/release/ips_image_relay` (every camera, one process, one thread each) or `target/release/ips_image_relay --id sb00`. Details in [docs/06_relay.md](docs/06_relay.md).
 
 Debug options, all in `modules/ips_detect/parameters/detector_params.yaml` (restart the detectors with `sb run ips_detect` after editing):
 
 | Key | Effect |
 |---|---|
-| `debug: true` | publish an annotated colour frame on `.../ips_detect-sbNN/iox2/debug_image`; set `debug_show_images: true` in `modules/ips_viz/parameters/viz_params.yaml` to see the 2x2 grid in rerun |
+| `debug: true` | publish an annotated colour frame on `.../ips_detect-sbNN/iox2/debug_image`; set `debug_show_images: true` in `modules/ips_viz/parameters/viz_params.yaml` to see the 2x2 grid in rerun; a running `ips_image_relay` republishes it at 640x512 on `.../ips_image_relay-sbNN/zenoh/debug_image` |
 | `save: <dir>` | write raw frames to `<dir>/sbNN/<seq>.png`; `""` is off |
 | `save_frames: N` | stop saving after N frames; `0` is unlimited |
 | `family`, `marker_size` | `aruco` / `0.087` for the cubes, `april` / `0.185` for calibration |
+
+The relay's own settings are in `modules/ips_image_relay/parameters/relay_params.yaml`: `scale` (integer divisor of both sides, `2` gives 640x512; it must divide 1280 and 1024) and `every` (relay every Nth received frame per stream, `1` relays all), the knob for a Wi-Fi peer that needs less bandwidth. Restart the relays after editing (`sb run ips_image_relay` in the relay flow).
 
 Camera check before anything else: `gcam-mvsdk-rs grab sb00` saves one test frame, `sb topic list` shows the live image keys.
 
@@ -192,7 +216,7 @@ sb down && sb up                     # back to the live pipeline; ips_track load
 
 ### Peek at a topic
 
-Fully-qualified keys start with `/`; without it sb looks for a bare topic in the module of the current directory. Shared-memory topics need `--transport iceoryx2`. The zenoh publishers tag every message with its type (`application/protobuf;ros2/custom/<Leaf>`), so no `--type` is needed; `--show` opens the image in a window.
+Fully-qualified keys start with `/`; without it sb looks for a bare topic in the module of the current directory. Shared-memory topics need `--transport iceoryx2`. The zenoh publishers tag every message with its type (`application/protobuf;ros2/custom/<Leaf>`, and `application/protobuf;ros2/sensor_msgs/Image` for the relay's images), so no `--type` is needed; `--show` opens the image in a window.
 
 ```bash
 sb topic list
@@ -200,6 +224,7 @@ sb topic listen --transport iceoryx2 /<device>/ws_ips/ips_detect-sb00/iox2/debug
 sb topic listen --transport iceoryx2 /<device>/ws_ips/ips_detect-sb00/iox2/debug_image --show --no-data
 sb topic listen /<device>/ws_ips/ips_detect-sb00/zenoh/markers -n 1
 sb topic listen /<device>/ws_ips/ips_track/zenoh/cube_poses -n 1
+sb topic listen /<device>/ws_ips/ips_image_relay-sb00/zenoh/image -n 1
 ```
 
 If a zenoh listen prints `schema: null` and hex, that module's publisher predates the type tag: re-render it with `sb io update <module>` (or `sb install .` at the repository root, which re-renders every module), rebuild, restart.

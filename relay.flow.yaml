@@ -1,0 +1,43 @@
+# Flow "relay" of the sb workspace ws_ips (sb 0.8.0+): the live pipeline of
+# sb.flow.yaml plus ips_image_relay, which halves each camera's iceoryx2 images
+# and republishes them over zenoh for network peers (a phone app, a second
+# machine). Committed. `sb install .` copies it to
+# ~/.swarmbotix/workspaces/ws_ips/flows/. See docs/06_relay.md.
+#
+# The relay is optional, so it is not a node of the default flow. sb has no
+# optional node: `sb up` starts every node of its flow, and `sb run <module>`
+# refuses a module that is not a node of the active flow (the one the last
+# `sb up` launched). So:
+#   sb up relay                  # no session running: pipeline with the relays
+#   sb down && sb up relay       # the default flow is up: the session belongs to
+#                                # the workspace and `sb up` refuses an existing one
+#   sb run ips_image_relay       # relay flow active: (re)start the four relays
+#   sb stop ips_image_relay      # close the four relay windows, pipeline keeps running
+#   sb down && sb up             # back to the pipeline without the relay
+# Beside the default flow, the relay can still be started by hand from its
+# module folder: target/release/ips_image_relay [--id sbNN] (one process, one
+# thread per camera in relay_params.yaml); `sb run` will not do it there.
+
+name: relay
+nodes: [ips_cam_gcam_pub, ips_detect, ips_track, ips_viz, ips_image_relay]
+
+# The same cameras as sb.flow.yaml; keep the lists equal. `sb up relay` opens
+# ips_cam_gcam_pub-sb00 .. -sb03, ips_detect-sb00 .. -sb03 and
+# ips_image_relay-sb00 .. -sb03, each started with `--id sbNN`, plus ips_track
+# and ips_viz.
+instances:
+  ips_cam_gcam_pub: [sb00, sb01, sb02, sb03]
+  ips_detect: [sb00, sb01, sb02, sb03]
+  ips_image_relay: [sb00, sb01, sb02, sb03]
+
+# publisher: subscriber, checked by `sb ws check` only, as in sb.flow.yaml.
+wires:
+  # The camera feeds its detector and its relay. The relay halves both iceoryx2
+  # image streams of its camera and republishes them over zenoh under the same
+  # topic names (.../ips_image_relay-sbNN/zenoh/image and .../debug_image).
+  ips_cam_gcam_pub[{id}].image: [ips_detect.image, ips_image_relay.image]
+  ips_detect[{id}].debug_image: ips_image_relay.debug_image
+  ips_detect[*].markers: ips_track.markers
+  ips_track.cube_poses: ips_viz.cube_poses
+  # ips_viz.debug_image is iceoryx2, which has no wildcard: main() opens one
+  # subscriber per camera (ips_detect-sbNN/iox2/debug_image) itself.

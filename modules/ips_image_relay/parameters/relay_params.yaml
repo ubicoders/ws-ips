@@ -1,0 +1,7 @@
+# relay_params.yaml: all settings for ips_image_relay. Read at startup, no flags.
+# Camera index into modules/ips_cam_gcam_pub/parameters/cam_params.yaml: 0 -> sb00, 1 -> sb01, ...
+# e.g. 0 relays <device>/ws_ips/ips_cam_gcam_pub-sb00/iox2/image to .../ips_image_relay-sb00/zenoh/image
+# and <device>/ws_ips/ips_detect-sb00/iox2/debug_image to .../ips_image_relay-sb00/zenoh/debug_image
+cameras: [0, 1, 2, 3]   # --id sb00 runs one
+scale: 2                # integer divisor: 2 -> 640x512 output
+every: 1                # relay every Nth received frame per stream; 1 = all

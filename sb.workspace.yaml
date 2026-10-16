@@ -2,7 +2,8 @@
 # to this file. It lists the modules the workspace holds and the message
 # definitions it imports. Which modules run, how many times, and wired to what
 # is said by the flow files beside it: sb.flow.yaml (the flow "default", the
-# live pipeline) and calib.flow.yaml (the flow "calib", the calibration).
+# live pipeline), relay.flow.yaml (the flow "relay", the pipeline plus the
+# optional image relay) and calib.flow.yaml (the flow "calib", the calibration).
 #
 # `sb install .` writes the installed copy to ~/.swarmbotix/workspaces/ws_ips/
 # (sb.workspace.yaml plus flows/), imports and compiles messages/custom/ into
@@ -19,6 +20,10 @@ modules:
   ips_detect: modules/ips_detect
   ips_track: modules/ips_track
   ips_viz: modules/ips_viz
+  # Half-size zenoh copies of the camera and detector images for network peers.
+  # Optional: registered and rendered like the others, but a node of
+  # relay.flow.yaml only, so `sb up` skips it and `sb up relay` starts it.
+  ips_image_relay: modules/ips_image_relay
   # Calibration is a one-shot step, not part of the live pipeline: registered
   # and rendered like the others, but a node of calib.flow.yaml only, so
   # `sb up` skips it and `sb up calib` starts it.

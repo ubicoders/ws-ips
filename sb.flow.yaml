@@ -7,12 +7,16 @@
 
 name: default
 # ips_calib is registered but not a node here; it runs in calib.flow.yaml.
+# ips_image_relay is optional and not a node here either: `sb up` never starts
+# it. relay.flow.yaml is this pipeline plus the relay (`sb up relay`); see
+# docs/06_relay.md for running the relay beside this flow.
 nodes: [ips_cam_gcam_pub, ips_detect, ips_track, ips_viz]
 
 # One instance per camera. The ids must match the camera lists in every
-# module's parameters yaml, and the instances of calib.flow.yaml. `sb up` opens
-# one window per instance, ips_cam_gcam_pub-sb00 .. -sb03 and ips_detect-sb00
-# .. -sb03, each started with `--id sbNN`. ips_track and ips_viz are singletons.
+# module's parameters yaml, and the instances of calib.flow.yaml and
+# relay.flow.yaml. `sb up` opens one window per instance, ips_cam_gcam_pub-sb00
+# .. -sb03 and ips_detect-sb00 .. -sb03, each started with `--id sbNN`.
+# ips_track and ips_viz are singletons.
 instances:
   ips_cam_gcam_pub: [sb00, sb01, sb02, sb03]
   ips_detect: [sb00, sb01, sb02, sb03]

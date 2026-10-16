@@ -122,7 +122,7 @@ body{font-size:17px}
   </div>
   <figure>
     <div class="fig">
-    <svg viewBox="0 0 1000 400" role="img" aria-label="Four cameras feed four publishers, which feed four detectors over shared memory. Detectors feed one tracker over zenoh. The tracker feeds the viewer, which streams to the rerun window. The one-shot calibrator also listens to the detectors and writes extrinsics files that the tracker reads at start.">
+    <svg viewBox="0 0 1000 400" role="img" aria-label="Four cameras feed four publishers, which feed four detectors over shared memory. Detectors feed one tracker over zenoh. The tracker feeds the viewer, which streams to the rerun window. The one-shot calibrator also listens to the detectors and writes extrinsics files that the tracker reads at start. Beside the detectors, four optional image relays, started only by sb up relay, read each camera picture and the detector&#39;s optional debug picture over shared memory, and send half-size copies over zenoh to network peers such as the Flutter app.">
       <defs>
         <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker>
         <marker id="ah-shm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="lshm"/></marker>
@@ -170,6 +170,16 @@ body{font-size:17px}
       <path d="M600 290h120l30 18v52H600z" class="doc"/>
       <text x="675" y="322" class="tm" text-anchor="middle">calibration/extrinsics/</text>
       <text x="675" y="340" class="tm" text-anchor="middle">sbNN_full.yaml</text>
+      <!-- relay -->
+      <rect x="238" y="288" width="150" height="90" rx="10" class="n ghost"/>
+      <rect x="230" y="280" width="150" height="90" rx="10" class="n"/>
+      <text x="305" y="315" class="tb" text-anchor="middle">ips_image_relay</text>
+      <text x="305" y="334" class="t" text-anchor="middle">halve the pictures</text>
+      <text x="305" y="356" class="ts" text-anchor="middle">x4, optional: sb up relay</text>
+      <!-- network peers -->
+      <rect x="20" y="290" width="120" height="70" rx="10" class="n ghost"/>
+      <text x="80" y="320" class="tb" text-anchor="middle">network peers</text>
+      <text x="80" y="340" class="ts" text-anchor="middle">e.g. the Flutter app</text>
       <!-- arrows -->
       <line x1="160" y1="115" x2="198" y2="115" class="a" marker-end="url(#ah)"/>
       <text x="180" y="105" class="ts" text-anchor="middle">cable</text>
@@ -192,22 +202,35 @@ body{font-size:17px}
       <path d="M675 288V162" class="a file" marker-end="url(#ah-file)"/>
       <text x="685" y="218" class="ts">read once</text>
       <text x="685" y="232" class="ts">at start</text>
+      <!-- relay arrows -->
+      <path d="M275 160V278" class="a shm" marker-end="url(#ah-shm)"/>
+      <text x="265" y="214" class="ts" text-anchor="end">image,</text>
+      <text x="265" y="228" class="ts" text-anchor="end">same frames</text>
+      <path d="M410 160V240H345V278" class="a shm" marker-end="url(#ah-shm)"/>
+      <text x="400" y="190" class="ts" text-anchor="end">debug_image</text>
+      <text x="400" y="204" class="ts" text-anchor="end">if debug: true</text>
+      <line x1="230" y1="310" x2="142" y2="310" class="a net" marker-end="url(#ah-net)"/>
+      <text x="185" y="303" class="ts" text-anchor="middle">image</text>
+      <line x1="230" y1="340" x2="142" y2="340" class="a net" marker-end="url(#ah-net)"/>
+      <text x="185" y="333" class="ts" text-anchor="middle">debug_image</text>
+      <text x="185" y="362" class="ts" text-anchor="middle">half size,</text>
+      <text x="185" y="376" class="ts" text-anchor="middle">640x512</text>
     </svg>
     </div>
-    <figcaption>Pictures stay on one computer and ride shared memory. Everything after the detector is small enough to cross the network.</figcaption>
+    <figcaption>Full-size pictures stay on one computer and ride shared memory. Everything after the detector is small enough to cross the network. The optional relay sends half-size copies of the pictures for peers that cannot read shared memory.</figcaption>
   </figure>
   <div class="io">
     <div><h3>Where things live</h3>
       <ul>
-        <li><span class="tag cfg">yaml</span><span><code>sb.flow.yaml</code> lists the five modules and the four camera ids, once. <code>ips_calib</code> is <code>up: false</code>, so <code>sb up</code> skips it.</span></li>
+        <li><span class="tag cfg">yaml</span><span><code>sb.flow.yaml</code> lists the four live modules, the four camera ids and the wires, once. <code>ips_calib</code> runs only in <code>calib.flow.yaml</code> and <code>ips_image_relay</code> only in <code>relay.flow.yaml</code>, so <code>sb up</code> starts neither.</span></li>
         <li><span class="tag cfg">yaml</span><span>Every module has its own <code>parameters/*.yaml</code>. It is the only place settings come from.</span></li>
-        <li><span class="tag file">proto</span><span><code>messages/custom/*.proto</code> defines the two messages. Each crate compiles them at build time.</span></li>
+        <li><span class="tag file">proto</span><span><code>messages/custom/*.proto</code> defines the two custom messages. Each crate compiles what it uses at build time; the relay compiles the stock ros2 <code>sensor_msgs/Image</code> from the sb vault.</span></li>
         <li><span class="tag cfg">gen</span><span><code>swarmbotix_io/</code> inside each module is generated by <code>sb</code>. Never edit it.</span></li>
       </ul>
     </div>
     <div><h3>One run, in order</h3>
       <ul>
-        <li><span class="tag hw">1</span><span><code>sb up</code> builds, then starts cameras, detectors, tracker, viewer.</span></li>
+        <li><span class="tag hw">1</span><span><code>sb up</code> builds, then starts cameras, detectors, tracker, viewer. <code>sb up relay</code> starts the same plus the four image relays.</span></li>
         <li><span class="tag hw">2</span><span>Once per camera placement: detectors on AprilTag, run <code>ips_calib</code>, restart tracker.</span></li>
         <li><span class="tag hw">3</span><span>Detectors back on ArUco. Open <code>rerun</code> to watch.</span></li>
       </ul>
