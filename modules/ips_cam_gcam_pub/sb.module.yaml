@@ -6,6 +6,12 @@ language: rust
 platforms:
   linux:
     requires: [cargo]
+    # Where the vendor SDK keeps the cameras' parameter groups (A is loaded on
+    # every open), per-camera data files and its log. Relative to this module
+    # folder, which is the working directory when sb launches the node; the
+    # same folder the gcam-mvsdk-rs command uses through .vscode/settings.json.
+    env:
+      GCAM_MVSDK_DATA_DIR: ${GCAM_MVSDK_DATA_DIR:-../../drivers/gcam-mvsdk-rs/data}
 publishers:
   image:                                    # <device>/ws_ips/ips_cam_gcam_pub-sbNN/iox2/image
     type: ros2/sensor_msgs/Image1280x1024

@@ -1,6 +1,6 @@
 ---
 name: gcam-collect
-description: Collect images from ws-ips cameras as PNG files, in one of three ways chosen by purpose, with gcam-mvsdk-rs grab for a handful of stills, the live_view recording (r starts, c stops, rate_hz and duration_s in examples/record.yaml) for a timed sequence while watching, or the ips_detect save option for frames captured inside the running pipeline from all four cameras at once. Use when the user wants test frames, a dataset of marker or calibration-board images, frames for a detector or intrinsics test, or recorded captures for docs/data. Rust driver is the default; gcam-mvsdk-py gives the same commands.
+description: Collect images from ws-ips cameras as PNG files, in one of three ways chosen by purpose, with gcam-mvsdk-rs grab for a handful of stills, the `gcam-mvsdk-rs view` recording (r starts, c stops; rate_hz and duration_s from a YAML file given with --config) for a timed sequence while watching, or the ips_detect save option for frames captured inside the running pipeline from all four cameras at once. Use when the user wants test frames, a dataset of marker or calibration-board images, frames for a detector or intrinsics test, or recorded captures for docs/data. Rust driver is the default; gcam-mvsdk-py gives the same commands.
 ---
 
 # gcam-collect
@@ -10,7 +10,7 @@ Three collectors. Choose by what the images are for:
 | Purpose | Collector | Output |
 |---|---|---|
 | A few stills: exposure check, focus check, one marker image | A. `grab` | `<dir>/sbNN_0000.png`, ... |
-| A timed sequence from one camera while watching it (board sweep, moving cube) | B. live view recording | `~/.gcam-mvsdk/data/<YYYYMMDD_HHMMSS>_sbNN/0.png`, ... |
+| A timed sequence from one camera while watching it (board sweep, moving cube) | B. `view` recording | `<data_dir>/<YYYYMMDD_HHMMSS>_sbNN/0.png`, ... (default `drivers/gcam-mvsdk-rs/data`) |
 | Frames from all four cameras exactly as the detectors see them, pipeline running | C. `ips_detect` `save:` | `<save>/sbNN/<seq>.png` |
 
 All three write 8-bit grayscale PNG (Mono8, 1280x1024), the same pixels the detector consumes.
@@ -45,8 +45,10 @@ for c in sb00 sb01 sb02 sb03; do gcam-mvsdk-rs grab $c -n 3 -o docs/data/stills/
 
 ## B. Timed sequence from the live view
 
-Set the rate and duration first. The file is `drivers/gcam-mvsdk-rs/examples/record.yaml`; copy it
-instead of editing the submodule:
+Set the rate and duration first. Without `--config`, `view` records 5 images per second for 30 s
+into the SDK data directory (`$GCAM_MVSDK_DATA_DIR`, `drivers/gcam-mvsdk-rs/data` in this
+workspace). For other values copy the sample `drivers/gcam-mvsdk-rs/examples/record.yaml` instead
+of editing the submodule:
 
 ```bash
 cp drivers/gcam-mvsdk-rs/examples/record.yaml /tmp/record.yaml
@@ -55,15 +57,14 @@ cp drivers/gcam-mvsdk-rs/examples/record.yaml /tmp/record.yaml
 ```yaml
 duration_s: 30   # a recording stops after this many seconds
 rate_hz: 5       # images saved per second; the camera keeps running at 90 fps
-data_dir: /abs/path/to/ws-ips/docs/data   # default ~/.gcam-mvsdk/data
+data_dir: /abs/path/to/ws-ips/docs/data   # default: the SDK data directory
 ```
 
-Only these three keys are accepted; a missing file means the defaults above. Then:
+Only these three keys are accepted. Then:
 
 ```bash
 sb stop ips_cam_gcam_pub
-cd drivers/gcam-mvsdk-rs
-cargo run --release --features view --example live_view -- sb00 --exposure-us 5000 --mtu 1500 --config /tmp/record.yaml
+gcam-mvsdk-rs view sb00 --mtu 1500 --config /tmp/record.yaml
 ```
 
 Press `r` to start, move the board or cube through the field of view, press `c` to stop early or
@@ -110,7 +111,8 @@ git (`*.png` under `docs/data/` is not ignored by default, so check `git status`
 |---|---|
 | `timeout waiting for a frame` ... `No frames received.` | Packet size above the NIC MTU: `--mtu 1500`. Then firewall and `rp_filter` (`gcam-mvsdk-rs doctor`). |
 | Status `-13`, `32774` or `-45` | A publisher holds the camera (A and B need it free): `sb stop ips_cam_gcam_pub`. |
-| `Error: examples/record.yaml: unknown field ...` or `rate_hz must be a positive number` | Only `duration_s`, `rate_hz`, `data_dir`; positive numbers. |
+| `error: /tmp/record.yaml: unknown field ...` or `rate_hz must be a positive number` | Only `duration_s`, `rate_hz`, `data_dir`; positive numbers. |
+| `error: unrecognized subcommand 'view'` | The command was built without OpenCV: `cd drivers/gcam-mvsdk-rs && bash install.bash` with `libopencv-dev clang libclang-dev` installed. |
 | `Error: creating <dir>: Permission denied` | `data_dir` or `-o` not writable; pick a folder under the repository or your home. |
 | Detectors run but `<save>` stays empty | Publishers not running (`sb topic list` shows no image keys), or the folder landed elsewhere: a relative `save:` is resolved from `modules/ips_detect/`, not from the shell. Check the `ips_detect-sb00` window under `sb attach`; it prints the save directory at startup. |
 | Images all black or all white | Exposure: `grab --exposure-us` to try values, keep 5000 for the dataset and fix the lighting instead. |

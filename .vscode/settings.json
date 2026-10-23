@@ -3,6 +3,13 @@
   // Cargo.lock and target/. Tell rust-analyzer which projects to load so that
   // go-to-definition works in every module (drivers/gcam-mvsdk-rs is loaded as a
   // path dependency of ips_cam_gcam_pub; list it too for its examples and tests).
+  // The vendor camera SDK keeps the cameras' parameter groups (A is loaded on every open),
+  // per-camera data files and its log in this folder, so no camera configuration lives
+  // outside the repository. The publisher's sb.module.yaml points at the same folder;
+  // gcam-mvsdk-rs uses the variable in every terminal opened here (export it in other shells).
+  "terminal.integrated.env.linux": {
+    "GCAM_MVSDK_DATA_DIR": "${workspaceFolder}/drivers/gcam-mvsdk-rs/data"
+  },
   "rust-analyzer.linkedProjects": [
     "modules/ips_cam_gcam_pub/Cargo.toml",
     "modules/ips_detect/Cargo.toml",

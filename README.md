@@ -193,7 +193,7 @@ Debug options, all in `modules/ips_detect/parameters/detector_params.yaml` (rest
 
 The relay's own settings are in `modules/ips_image_relay/parameters/relay_params.yaml`: `scale` (integer divisor of both sides, `2` gives 640x512; it must divide 1280 and 1024) and `every` (relay every Nth received frame per stream, `1` relays all), the knob for a Wi-Fi peer that needs less bandwidth. Restart the relays after editing (`sb run ips_image_relay` in the relay flow).
 
-Camera check before anything else: `gcam-mvsdk-rs grab sb00` saves one test frame, `sb topic list` shows the live image keys.
+Camera check before anything else: `gcam-mvsdk-rs measure sb00` must report about 91 fps with 0 lost, `gcam-mvsdk-rs grab sb00` saves one test frame, `sb topic list` shows the live image keys. The vendor SDK keeps the cameras' parameter groups (group A, loaded on every open, holds the IPS values: High frame-speed tier, 5 ms exposure) in `drivers/gcam-mvsdk-rs/data`: `.vscode/settings.json` sets `GCAM_MVSDK_DATA_DIR` for terminals opened here and the publisher's `sb.module.yaml` for `sb up`; export it yourself in other shells, so that no camera configuration lives outside the repository.
 
 ### 3. Singletons: `ips_track`, `ips_viz`, `ips_calib`
 

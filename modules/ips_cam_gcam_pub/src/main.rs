@@ -146,11 +146,13 @@ fn usage_error(msg: &str) -> ExitCode {
     ExitCode::from(2)
 }
 
-/// Sends the per-camera files the SDK writes on open to `<SDK home>/data`, as
-/// the `gcam-mvsdk-rs` command does, instead of the working directory (this
-/// module folder).
+/// Sends the files the SDK keeps per camera and model (data files, parameter
+/// groups A to D, log) to the SDK data directory, the same place the
+/// `gcam-mvsdk-rs` command uses: `$GCAM_MVSDK_DATA_DIR` (set in sb.module.yaml
+/// to the data folder of the driver checkout), else `<SDK home>/data`. Without
+/// this the SDK writes into the working directory (this module folder).
 fn set_data_directory(sdk: &Sdk) {
-    let Some(dir) = gcam_mvsdk_rs::sdk_home_root().map(|h| h.join("data")) else {
+    let Some(dir) = gcam_mvsdk_rs::data_dir() else {
         return;
     };
     if let Err(e) = std::fs::create_dir_all(&dir) {

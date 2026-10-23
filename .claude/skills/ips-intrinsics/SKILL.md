@@ -75,8 +75,7 @@ recording from `gcam-collect`: it shows the image while the grid is moved and sa
 ```bash
 cp drivers/gcam-mvsdk-rs/examples/record.yaml /tmp/record_intr.yaml
 # edit: rate_hz: 2   duration_s: 40   data_dir: /abs/path/to/ws-ips/docs/data/intrinsics
-cd drivers/gcam-mvsdk-rs
-cargo run --release --features view --example live_view -- sb00 --exposure-us 5000 --mtu 1500 --config /tmp/record_intr.yaml
+gcam-mvsdk-rs view sb00 --mtu 1500 --config /tmp/record_intr.yaml
 ```
 
 Press `r`, move the grid for the duration, `q`. The recording lands in

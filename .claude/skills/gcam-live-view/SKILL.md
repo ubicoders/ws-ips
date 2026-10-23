@@ -1,6 +1,6 @@
 ---
 name: gcam-live-view
-description: Show the image of one ws-ips camera in real time, either directly from the driver with the live_view example of gcam-mvsdk-rs (OpenCV window, fps overlay, 5 ms exposure) or through the running pipeline with sb topic listen --show on the ips_cam_gcam_pub image key, and check focus, framing, exposure and frame rate. Use when the user wants to see a camera live, aim or focus a ceiling camera, confirm streaming works, or check that a publisher really delivers frames. Rust driver is the default; gcam-mvsdk-py has the same example.
+description: Show the image of one ws-ips camera in real time, either directly from the driver with `gcam-mvsdk-rs view` (OpenCV window, fps overlay, 5 ms exposure, fastest frame-speed tier) or through the running pipeline with sb topic listen --show on the ips_cam_gcam_pub image key, and check focus, framing, exposure and frame rate. Use when the user wants to see a camera live, aim or focus a ceiling camera, confirm streaming works, or check that a publisher really delivers frames. Rust driver is the default; gcam-mvsdk-py has the same example.
 ---
 
 # gcam-live-view
@@ -27,23 +27,31 @@ its `ips_cam_gcam_pub-sbNN` window is running; stop it first with `sb stop ips_c
 
 ```bash
 sb stop ips_cam_gcam_pub                       # free the cameras if the pipeline runs
-cd drivers/gcam-mvsdk-rs
-cargo run --release --features view --example live_view -- sb00
+gcam-mvsdk-rs view sb00
 ```
 
-Options after `--`: the camera name or serial (may be omitted with exactly one camera),
-`--exposure-us US` (default 5000, the IPS value, automatic exposure off), `--mtu BYTES` (GigE
-packet size, 1500 unless every switch passes jumbo frames; the IPS default in `cam_params.yaml` is
-`packet_bytes: 1500`), `--config FILE` (recording options, default `examples/record.yaml`).
+`view` is part of the installed command when it was built with the `view` feature
+(`bash install.bash` in `drivers/gcam-mvsdk-rs` adds it when OpenCV and libclang are present;
+`error: unrecognized subcommand 'view'` means it was not). Options: the camera name or serial
+(may be omitted with exactly one camera), `--exposure-us US` (default 5000, the IPS value,
+automatic exposure off), `--frame-speed IDX` (default: the fastest tier the camera lists, as the
+publisher does), `--mtu BYTES` (GigE packet size, 1500 unless every switch passes jumbo frames;
+the IPS default in `cam_params.yaml` is `packet_bytes: 1500`), `--config FILE` (recording
+options, see `gcam-collect`).
 
 Keys in the window: `q` or Esc quits, `r` starts a recording, `c` stops it (recording is covered
 in `gcam-collect`).
 
 What to check while watching:
 
-- **Frame rate.** The overlay shows displayed frames per second. The IPS cameras run at about
-  90 fps on their 1280x1024 preset; a steady 60 means `rmem_max` is below 32 MB (`gcam-mvsdk-rs
-  doctor` names the sysctl).
+- **Frame rate.** The overlay shows delivered frames per second. The IPS cameras run at about
+  90 fps on their 1280x1024 preset at the High frame-speed tier (index 2) with 5 ms exposure,
+  which `view` selects itself on every start. A steady 60 to 63 means a slower tier was forced
+  with `--frame-speed`; around 20 means a long exposure (auto exposure in a dim room).
+  `gcam-mvsdk-rs measure sbNN` prints the delivered rate and the SDK's lost-frame counter without
+  a window; `gcam-mvsdk-rs set sbNN --frame-speed 2 --exposure-us 5000 --save A` makes the IPS
+  values the camera's defaults for every other program (group A is loaded on each open; the file
+  lands in `$GCAM_MVSDK_DATA_DIR`, `drivers/gcam-mvsdk-rs/data` in this workspace).
 - **Exposure.** 5 ms is the IPS value: longer blurs marker corners under motion. If the image is
   dark at 5 ms, add light or gain; do not raise the exposure for the pipeline.
 - **Focus and framing.** Marker corners must be sharp over the whole floor area the camera covers.
