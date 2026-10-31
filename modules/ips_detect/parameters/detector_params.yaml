@@ -4,6 +4,6 @@
 cameras: [0, 1, 2, 3]   # --id sb00 runs one
 family: aruco           # aruco (ArUco 4x4) | april (AprilTag 36h11, calibration only)
 marker_size: 0.087      # metres, measured tag side. Cube 0.087, calib board 0.185.
-debug: false            # true publishes an annotated colour frame for ips_viz
+debug: true            # true publishes an annotated colour frame for ips_viz
 save: ""                # save raw frames to <save>/<inst>/<seq>.png; empty = off
 save_frames: 0          # stop after N frames; 0 = unlimited
