@@ -21,7 +21,10 @@
 //! clock of its last fit. `cubes` is empty only before the first detection.
 //!
 //! No command-line options: every value comes from
-//! `parameters/tracker_params.yaml`. The tracker also hosts the cam_param service
+//! `parameters/tracker_params.yaml`. `parameters/output_frame.yaml` names the
+//! axis convention the finished poses are relabelled into right before publishing
+//! (`RDF`, the board frame, is the default and a no-op; see
+//! `ips_track::output_frame`). The tracker also hosts the cam_param service
 //! (see `ips_track::cam_param`).
 
 use ips_track::cam_param;
@@ -31,6 +34,7 @@ use ips_track::filter::{Filter, Tuning};
 use ips_track::fps::FpsMeter;
 use ips_track::markers_sub;
 use ips_track::msgs::{CubePose, CubePoses, MarkerDetections, Mat3, Quat, Vec3};
+use ips_track::output_frame::OutputFrame;
 
 use nalgebra::{Matrix3, Vector3};
 use prost::Message;
@@ -301,6 +305,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut filter =
         Filter::select(&tuning).unwrap_or_else(|e| fail(format!("tracker_params: {e}")));
 
+    // Output axis convention: a relabelling applied to the finished poses right
+    // before publishing. Everything up to there stays in the board frame.
+    let frame_path = crate_dir().join("parameters").join("output_frame.yaml");
+    let out_frame = OutputFrame::load(&frame_path).unwrap_or_else(|e| fail(e));
+
     // Per-camera extrinsics. A camera without a usable file is skipped: its
     // detections cannot be lifted to world, so they are ignored on the wire.
     let ext_dir = display_path(
@@ -380,6 +389,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         settings.alive.as_millis()
     );
     println!("{}", filter.describe(&tuning));
+    println!(
+        "output frame: {}{}  ({})",
+        out_frame.convention.name(),
+        if out_frame.is_identity() {
+            " = board frame, no conversion"
+        } else {
+            ", relabelled from the board frame at publish"
+        },
+        frame_path.display()
+    );
 
     // zenoh: the fan-in markers subscriber and the cube_poses publisher. The
     // generated MarkersSubscriber is not used: its try_recv_latest collapses the
@@ -454,6 +473,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &mut filter,
             &mut tracks,
             &mut last_stamp,
+            &out_frame,
         )?;
 
         // Sleep to the next edge of the fixed clock. If a tick ran long, drop the
@@ -490,6 +510,7 @@ fn fuse_and_publish(
     filter: &mut Filter,
     tracks: &mut HashMap<u32, CubeTrack>,
     last_stamp: &mut Option<(i32, u32)>,
+    out_frame: &OutputFrame,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Body/world correspondences from every live camera's latest frame, by cube.
     // Only the cubes named in `cube_ids` are kept (empty = keep all).
@@ -552,27 +573,42 @@ fn fuse_and_publish(
             }
         }
         let o = filter.smooth(cid, now, &f);
+        // Relabel into the configured output frame (output_frame.yaml). RDF is
+        // the board frame and passes the filter's values through verbatim.
+        let (pos, rot, euler_deg, quat, vel) = if out_frame.is_identity() {
+            (o.pos, o.rot, o.euler_deg, o.quat, o.vel)
+        } else {
+            let rot = out_frame.rotation(&o.rot);
+            let q = cube::unit_quat(&rot);
+            (
+                out_frame.vector(&o.pos),
+                rot,
+                cube::mat_to_euler_xyz_deg(&rot),
+                [q.coords[0], q.coords[1], q.coords[2], q.coords[3]],
+                o.vel.map(|v| out_frame.vector(&v)),
+            )
+        };
         let pose = CubePose {
             cube_id: cid,
             position: Some(Vec3 {
-                x: o.pos[0],
-                y: o.pos[1],
-                z: o.pos[2],
+                x: pos[0],
+                y: pos[1],
+                z: pos[2],
             }),
-            rotation: Some(Mat3 { m: flatten(&o.rot) }),
+            rotation: Some(Mat3 { m: flatten(&rot) }),
             euler_deg: Some(Vec3 {
-                x: o.euler_deg[0],
-                y: o.euler_deg[1],
-                z: o.euler_deg[2],
+                x: euler_deg[0],
+                y: euler_deg[1],
+                z: euler_deg[2],
             }),
             orientation: Some(Quat {
-                x: o.quat[0],
-                y: o.quat[1],
-                z: o.quat[2],
-                w: o.quat[3],
+                x: quat[0],
+                y: quat[1],
+                z: quat[2],
+                w: quat[3],
             }),
-            // World-frame linear velocity, Some only under the kf filter.
-            velocity: o.vel.map(|v| Vec3 {
+            // Linear velocity in the output frame, Some only under the kf filter.
+            velocity: vel.map(|v| Vec3 {
                 x: v[0],
                 y: v[1],
                 z: v[2],
@@ -644,6 +680,7 @@ fn fuse_and_publish(
         stamp_nanosec,
         frame_seq: *seq,
         cubes,
+        frame: out_frame.convention.name().to_string(),
     };
     publisher
         .publish(&out)

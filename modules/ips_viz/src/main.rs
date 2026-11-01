@@ -25,12 +25,17 @@
 //!     does not answer is skipped with a warning and not drawn.
 //!
 //! No command-line options: every value comes from `parameters/viz_params.yaml`.
+//! Every `CubePoses` names its axis convention in `frame` (`RDF`, `FRD`, `FRU`,
+//! from the tracker's output_frame.yaml); ips_viz maps the poses back to the
+//! board frame before drawing, so the scene looks the same for every convention
+//! and lines up with the camera poses (served in the board frame).
 //! Start a rerun viewer first (`rerun`); with none up rerun buffers and
 //! reconnects, so the order is not critical.
 
 use ips_viz::cube_poses_sub::{self, CubePosesSubscriber};
 use ips_viz::debug_image_sub::{self, DebugImageSubscriber};
 use ips_viz::msgs::CubePoses;
+use ips_viz::output_frame::OutputFrame;
 use ips_viz::visualize::{CameraExtrinsics, CubeModel, Visualizer, VizParams};
 
 use iceoryx2::prelude::*;
@@ -201,6 +206,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // extrinsics, so the grid stays 2x2 and a silent camera just shows empty.
     let insts = cfg.camera_names();
 
+    // The tracker's output convention, read off each message and undone before
+    // drawing (see output_frame). Rebuilt only when the name changes.
+    let mut out_frame: Option<OutputFrame> = None;
+
     let cube_key = cube_poses_key();
     println!("ips_viz: params     {}", params_path.display());
     println!("ips_viz: cameras    [{}]", insts.join(", "));
@@ -360,7 +369,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     Err(_) => continue,
                 };
                 let stamp = msg.stamp_sec as f64 + msg.stamp_nanosec as f64 * 1e-9;
-                if let Err(e) = viz.log_cubes(msg.frame_seq, stamp, &msg.cubes, &model) {
+                if out_frame.as_ref().is_none_or(|f| !f.matches(&msg.frame)) {
+                    match OutputFrame::from_name(&msg.frame) {
+                        Ok(f) => {
+                            println!(
+                                "[viz] cube_poses frame {}{}",
+                                f.name,
+                                if f.is_identity() {
+                                    " = board frame, drawn as is"
+                                } else {
+                                    ", mapped back to the board frame for drawing"
+                                }
+                            );
+                            out_frame = Some(f);
+                        }
+                        Err(e) => {
+                            eprintln!("warning: {e}; drawing as the board frame");
+                            out_frame = Some(OutputFrame::from_name("RDF").unwrap());
+                        }
+                    }
+                }
+                let cubes = out_frame.as_ref().unwrap().to_board(&msg.cubes);
+                if let Err(e) = viz.log_cubes(msg.frame_seq, stamp, &cubes, &model) {
                     eprintln!("warning: visualize: log_cubes failed: {e}");
                 }
                 if last_print.elapsed() >= ECHO_PERIOD {

@@ -29,4 +29,5 @@ pub mod msgs {
 
 // The parameters, the off-wire geometry (cube box, camera extrinsics) and the
 // rerun view: blueprint, cameras, cubes, plots, debug images.
+pub mod output_frame;
 pub mod visualize;

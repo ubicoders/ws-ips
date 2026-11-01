@@ -8,6 +8,7 @@ Subscribes to the cube poses from `ips_track`, fetches each camera's extrinsics 
 - `<device>/ws_ips/ips_track/zenoh/service/cam_param/sbNN` at startup, retried until the tracker answers.
 - `<device>/ws_ips/ips_detect-sbNN/iox2/debug_image` when `debug_show_images: true`, one subscriber per camera opened by `main()` (iceoryx2 has no wildcard, so this input is not in `wires:`).
 - `parameters/viz_params.yaml`: cube box size, cameras to draw, `rerun_hz`, which panels to show.
+- The `frame` field of every `CubePoses` (`RDF`, `FRD` or `FRU`, from the tracker's `output_frame.yaml`). The poses on the wire are relabelled into that convention; `ips_viz` maps them back to the board frame before drawing, so the scene (and the plots) look the same for every convention and line up with the camera poses, which cam_param serves in the board frame. An empty `frame` (an older tracker) is read as `RDF`.
 
 ## Outputs
 
@@ -25,6 +26,7 @@ Subscribes to the cube poses from `ips_track`, fetches each camera's extrinsics 
 
 ```
 src/main.rs         the cam_param fetch, the subscribe loop
+src/output_frame.rs the `frame` name of a received CubePoses and the mapping of its poses back to the board frame
 src/visualize.rs    parameters, cube box and camera extrinsics, the rerun blueprint, cameras, cubes, plots, debug images
 parameters/viz_params.yaml
 sb.module.yaml      subscribers `cube_poses`, `debug_image`

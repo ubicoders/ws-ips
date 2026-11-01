@@ -43,3 +43,4 @@ pub mod filter_kf;
 pub mod filter_lp;
 pub mod filter_one_euro;
 pub mod fps;
+pub mod output_frame;

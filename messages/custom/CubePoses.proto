@@ -1,6 +1,14 @@
 // custom/CubePoses: fused rigid pose of each marker cube, published per frame
 // over zenoh (protobuf) by ips_track. Poses are in the WORLD frame (RDF, metres),
-// the same frame as the sbNN_full.yaml camera extrinsics.
+// the same frame as the sbNN_full.yaml camera extrinsics, unless `frame` says
+// otherwise: ips_track relabels the axes of every pose into the convention of
+// its parameters/output_frame.yaml (RDF, the board frame, is the default and a
+// no-op; FRD and FRU stand the board camera on the floor looking toward the
+// board's top row: forward = board -y, right = board +x, down = board +z). The
+// same relabelling is applied to the cube body, so world = R * body + t holds
+// in the named frame and R stays a proper rotation. Consumers that draw against
+// the board-frame extrinsics (ips_viz, zenoh_flutter) undo it with C^T, where C
+// has the named frame's axes as rows in board coordinates.
 //
 // Body frame: origin at the cube centre, RDF with +X toward the RIGHT face,
 // +Y toward the BACK face, +Z toward the blank BOTTOM face. The TOP marker's
@@ -59,4 +67,8 @@ message CubePoses {
   uint32 stamp_nanosec = 2;
   uint64 frame_seq     = 3;
   repeated CubePose cubes = 4;
+  // Axis convention of every pose in `cubes`: "RDF" (the board frame), "FRD" or
+  // "FRU", as named in ips_track's output_frame.yaml. Empty = a publisher that
+  // predates the field, to be read as "RDF".
+  string frame         = 5;
 }
